@@ -148,7 +148,7 @@ timeout
 timeout: anObject
 	timeout := anObject! !
 
-!McpEvalJob methodsFor: 'private' stamp: 'AB 15/Sep/2026 14:15:00'!
+!McpEvalJob methodsFor: 'private' stamp: 'sf 15/Sep/2026 14:15:00'!
 formatStack: aString
 	"Answer aString as a readable stack-trace suffix, or the empty string."
 	aString isEmpty ifTrue: [ ^ '' ].
@@ -216,7 +216,7 @@ waitForCompletionUpTo: seconds killOnTimeout: shouldKill
 			self errorDescription: 'Timed out after ', seconds printString, ' seconds' ] ].
 	^ self asStatusDictionary! !
 
-!McpEvalJob class methodsFor: 'debugging' stamp: 'AB 15/Sep/2026 14:00:00'!
+!McpEvalJob class methodsFor: 'debugging' stamp: 'sf 15/Sep/2026 14:00:00'!
 frameDescriptionOf: aContext
 	"Answer one debugger line for aContext, e.g. 'Symbol >> #fooBarBaz', appending
 	the receiver's class when it differs from the method's class (inherited code)."
@@ -233,7 +233,7 @@ frameDescriptionOf: aContext
 			stream nextPutAll: receiverClass name.
 			stream nextPutAll: ')' ] ]! !
 
-!McpEvalJob class methodsFor: 'debugging' stamp: 'AB 15/Sep/2026 14:00:00'!
+!McpEvalJob class methodsFor: 'debugging' stamp: 'sf 15/Sep/2026 14:00:00'!
 stackTraceFor: anException
 	"Answer a readable call trace for anException, one frame per line (first 30
 	frames). Empty string when no signaler context is available."
@@ -997,7 +997,7 @@ registerScreenshotTool
 			'required'. #() })
 		implementation: #screenshotTool:! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 15/Sep/2026 14:00:00'!
 registerMethodSourceTool
 	self registerTool: 'method_source'
 		description: 'Answer the source of a method (Class >> selector, category, code). With includeSuperclasses:true the nearest defining class in the ancestry is named.'
@@ -1010,7 +1010,7 @@ registerMethodSourceTool
 			'required'. #('className' 'selector') })
 		implementation: #methodSourceTool:! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 15/Sep/2026 14:00:00'!
 registerSelectorUsageTool
 	self registerTool: 'selector_usage'
 		description: 'Answer who implements and who sends a selector, one Class >> selector per line.'
@@ -1021,7 +1021,7 @@ registerSelectorUsageTool
 			'required'. #('selector') })
 		implementation: #selectorUsageTool:! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 15/Sep/2026 14:00:00'!
 registerClassHierarchyTool
 	self registerTool: 'class_hierarchy'
 		description: 'Answer a class''s ancestry and an indented descendant tree.'
@@ -1032,7 +1032,7 @@ registerClassHierarchyTool
 			'required'. #('className') })
 		implementation: #classHierarchyTool:! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 15/Sep/2026 14:00:00'!
 definingClassOf: aSelector in: aClass includeSuperclasses: includeSuperclasses
 	"Answer the first class in aClass's hierarchy that defines aSelector, or nil."
 	includeSuperclasses ifFalse: [
@@ -1041,7 +1041,7 @@ definingClassOf: aSelector in: aClass includeSuperclasses: includeSuperclasses
 		detect: [ :each | each includesSelector: aSelector ]
 		ifNone: [ nil ]! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 15/Sep/2026 14:00:00'!
 referenceListTextFor: aCollection
 	"Answer the method references of aCollection as one 'Class >> selector' line per
 	entry, capped at 40 lines."
@@ -1059,7 +1059,7 @@ referenceListTextFor: aCollection
 		(aCollection size > max) ifTrue: [
 			stream nextPutAll: '... +'; print: aCollection size - max; nextPutAll: ' more'; newLine ] ]! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 15/Sep/2026 14:00:00'!
 descendantTreeTextFor: aClass
 	"Answer an indented descendant tree using dashes for levels, capped at 300 entries."
 	^ String streamContents: [ :stream |
@@ -1074,7 +1074,7 @@ descendantTreeTextFor: aClass
 			startingLevel: 0.
 		shown = 0 ifTrue: [ stream nextPutAll: '(none)'; newLine ] ]! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 15/Sep/2026 14:00:00'!
 methodSourceTool: arguments
 	"Answer the source of a method. With includeSuperclasses: true the nearest
 	defining class in the ancestry is named."
@@ -1106,7 +1106,7 @@ methodSourceTool: arguments
 		stream newLine; newLine.
 		stream nextPutAll: reference sourceCode ])! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 15/Sep/2026 14:00:00'!
 selectorUsageTool: arguments
 	"Answer who implements and who sends a selector, one Class >> selector per line."
 	| selector implementors senders |
@@ -1132,7 +1132,7 @@ selectorUsageTool: arguments
 		stream newLine.
 		stream nextPutAll: (self referenceListTextFor: senders) ])! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 15/Sep/2026 14:00:00'!
 classHierarchyTool: arguments
 	"Answer ancestry plus an indented descendant tree for a class."
 	| className cls |
@@ -1434,14 +1434,14 @@ start
 stop
 	^ self default stop! !
 
-!RemoteControlMCP class methodsFor: 'class initialization' stamp: 'AB 15/Sep/2026 13:30:00'!
+!RemoteControlMCP class methodsFor: 'class initialization' stamp: 'sf 15/Sep/2026 13:30:00'!
 registerForStartUp
 	"Register this class in Smalltalk's startUp list, so the MCP server comes
 	back up automatically after an image save/reboot. Answer self."
 	Smalltalk addToStartUpList: self.
 	^ self! !
 
-!RemoteControlMCP class methodsFor: 'class initialization' stamp: 'AB 15/Sep/2026 13:30:00'!
+!RemoteControlMCP class methodsFor: 'class initialization' stamp: 'sf 15/Sep/2026 13:30:00'!
 startUp: isARealStartup
 	"After a real image save/reboot, bring the MCP server back up in its own
 	process, so the (busy) startup phase never blocks the server."
