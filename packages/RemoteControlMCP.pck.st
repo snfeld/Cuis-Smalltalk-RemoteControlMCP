@@ -1,8 +1,8 @@
-'From Cuis7.8 [latest update: #7977] on 13 August 2026 at 9:08:12 am'!
+'From Cuis7.8 [latest update: #7977] on 15 September 2026 at 9:08:12 am'!
 'Description '!
-!provides: 'RemoteControlMCP' 1 1!
+!provides: 'RemoteControlMCP' 1 3!
 !requires: 'WebClient' 1 38 nil!
-!requires: 'JSON' 1 29 nil!
+!requires: 'Graphics-Files-Additional' 1 nil nil!
 SystemOrganization addCategory: #RemoteControlMCP!
 SystemOrganization addCategory: #'RemoteControlMCP-http'!
 
@@ -47,8 +47,18 @@ Object subclass: #McpSseSession
 McpSseSession class
 	instanceVariableNames: ''!
 
+!classDefinition: #McpEvalRequestor category: #RemoteControlMCP!
+Object subclass: #McpEvalRequestor
+	instanceVariableNames: 'workspace'
+	classVariableNames: ''
+	poolDictionaries: ''
+	category: 'RemoteControlMCP'!
+!classDefinition: 'McpEvalRequestor class' category: #RemoteControlMCP!
+McpEvalRequestor class
+	instanceVariableNames: ''!
 
-!McpEvalJob methodsFor: 'private' stamp: 'H9 13/Aug/2026 06:42:20'!
+
+!McpEvalJob methodsFor: 'private' stamp: 'sf 13/Aug/2026 06:42:20'!
 asStatusDictionary
 	"Answer the JSON-safe status dictionary for this job."
 	^ Dictionary newFromPairs: {
@@ -57,17 +67,23 @@ asStatusDictionary
 		'result'. result.
 		'error'. errorDescription }! !
 
-!McpEvalJob methodsFor: 'private' stamp: 'H9 13/Aug/2026 06:42:18'!
+!McpEvalJob methodsFor: 'private' stamp: 'sf 06/Sep/2026'!
 doEvaluate
-	| value report |
-	value := Compiler evaluate: source.
-	report := value isNil
-		ifTrue: [ 'nil' ]
-		ifFalse: [ value printString ].
-	self result: report.
-	self state: 'done'! !
+	"Evaluate the source with interactive Workspace auto-binding semantics
+	(fresh McpEvalRequestor per job, so no state leaks between evaluations).
+	Set result / errorDescription / state; the surrounding evaluateSource still
+	resumes stray Notifications and signals done in all cases."
+	| requestor dict |
+	requestor := McpEvalRequestor new.
+	dict := requestor evaluate: source.
+	(dict at: #ok) ifTrue: [
+		self result: (dict at: #value).
+		self state: 'done' ]
+	ifFalse: [
+		self errorDescription: (dict at: #error), (self formatStack: (dict at: #stack ifAbsent: [ '' ])).
+		self state: 'error' ]! !
 
-!McpEvalJob methodsFor: 'private' stamp: 'H9 13/Aug/2026 06:42:10'!
+!McpEvalJob methodsFor: 'private' stamp: 'sf 13/Aug/2026 06:42:10'!
 initialize
 	super initialize.
 	timeout := 30.
@@ -76,104 +92,247 @@ initialize
 	errorDescription := ''.
 	done := Semaphore new! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:14'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:14'!
 done
 	^ done! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:13'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:13'!
 errorDescription
 	^ errorDescription! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:13'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:13'!
 errorDescription: anObject
 	errorDescription := anObject! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:10'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:10'!
 id
 	^ id! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:10'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:10'!
 id: anObject
 	id := anObject! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:14'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:14'!
 isRunning
 	^ state = 'running'! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:13'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:13'!
 result
 	^ result! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:13'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:13'!
 result: anObject
 	result := anObject! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:11'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:11'!
 source
 	^ source! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:11'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:11'!
 source: anObject
 	source := anObject! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:12'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:12'!
 state
 	^ state! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:12'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:12'!
 state: anObject
 	state := anObject! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:12'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:12'!
 timeout
 	^ timeout! !
 
-!McpEvalJob methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:42:11'!
+!McpEvalJob methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:42:11'!
 timeout: anObject
 	timeout := anObject! !
 
-!McpEvalJob methodsFor: 'control' stamp: 'H9 13/Aug/2026 06:42:18'!
+!McpEvalJob methodsFor: 'private' stamp: 'AB 15/Sep/2026 14:15:00'!
+formatStack: aString
+	"Answer aString as a readable stack-trace suffix, or the empty string."
+	aString isEmpty ifTrue: [ ^ '' ].
+	^ String newLineString, String newLineString, 'Stack:', String newLineString, aString! !
+
+!McpEvalJob methodsFor: 'control' stamp: 'sf 06/Sep/2026'!
 evaluateSource
-	"Evaluate the source. Update state and signal done in all cases."
-	[ self doEvaluate ]
-		on: Error do: [ :ex | self errorDescription: ex description. self state: 'error' ].
+	"Evaluate the source. Resume harmless Notifications (the same ones
+	`safelyCompile:` resumes: InMidstOfFileinNotification, UndeclaredVariableWarning,
+	...) so the job cannot hang in a headless UI default-notifier; catch Errors
+	and update state. Signal done in ALL cases so waiters never spin forever.
+	The McpEvaluating flag (set/cleared by McpEvalRequestor) makes headless
+	PopUpMenu confirm:/inform: auto-answer instead of spinning in a modal loop."
+	[
+		self doEvaluate
+	] on: Notification do: [ :ex | ex resume: true ]
+		on: Error do: [ :ex |
+			self errorDescription: ex description, (self formatStack: (self class stackTraceFor: ex)).
+			self state: 'error' ].
 	self done signal! !
 
-!McpEvalJob methodsFor: 'control' stamp: 'H9 13/Aug/2026 06:55:56'!
+!McpEvalJob methodsFor: 'control' stamp: 'sf 13/Aug/2026 06:55:56'!
 markTimedOutIfStillRunning
 	"Mark a still-running job as timed out when the server is stopping."
 	self isRunning ifTrue: [
 		self terminate.
 		self errorDescription: 'Server stopped' ]! !
 
-!McpEvalJob methodsFor: 'control' stamp: 'H9 13/Aug/2026 06:55:07'!
+!McpEvalJob methodsFor: 'control' stamp: 'sf 06/Sep/2026'!
 run
 	"Evaluate the source in a forked process. The process runs one priority below
-	user so that a CPU-bound eval cannot starve the HTTP handler or the watchdog."
-	[ self evaluateSource ]
-		forkAt: Processor userSchedulingPriority - 1
-		named: 'McpEval-', id! !
+	user so that a CPU-bound eval cannot starve the HTTP handler or the watchdog.
+	Remember the process so a timeout can really terminate it.
+	NOTE: Since Cuis 2022 forkAt: answers nil (by design, jmv). Use
+	newProcess + resume, else `process` record and thus timeout-termination
+	silently never works. No exclamation mark anywhere in this comment (chunk format)."
+	process := [ self evaluateSource ] newProcess.
+	process priority: Processor userSchedulingPriority - 1.
+	process name: 'McpEval-', id.
+	process resume! !
 
-!McpEvalJob methodsFor: 'control' stamp: 'H9 13/Aug/2026 06:42:19'!
+!McpEvalJob methodsFor: 'control' stamp: 'sf 06/Sep/2026'!
 terminate
-	"Mark the job as terminated."
+	"Terminate a still-running job process and mark it terminated."
+	process ifNotNil: [ process terminate ].
 	state := 'timedOut'! !
 
-!McpEvalJob methodsFor: 'control' stamp: 'H9 13/Aug/2026 06:55:27'!
+!McpEvalJob methodsFor: 'control' stamp: 'sf 06/Sep/2026'!
 waitForCompletionUpTo: seconds
-	"Wait until the job finishes or the timeout elapses. Terminate on timeout.
+	"Wait until the job finishes or the deadline elapses. Terminate on deadline.
+	Note: in Cuis waitTimeoutMSecs: answers true when the deadline expired."
+	^ self waitForCompletionUpTo: seconds killOnTimeout: true! !
+
+!McpEvalJob methodsFor: 'control' stamp: 'sf 06/Sep/2026'!
+waitForCompletionUpTo: seconds killOnTimeout: shouldKill
+	"Wait until the job finishes or the deadline elapses. When the deadline
+	elapsed: if shouldKill, terminate the process and mark the job timed out;
+	else leave the job running in the background (it stays registered and can be
+	polled via eval_status). Answer job asStatusDictionary.
 	Note: in Cuis waitTimeoutMSecs: answers true when the deadline expired."
 	(done waitTimeoutMSecs: seconds * 1000) ifTrue: [
-		self terminate.
-		self state: 'timedOut'.
-		self errorDescription: 'Timed out after ', seconds printString, ' seconds' ]! !
+		shouldKill ifTrue: [
+			self terminate.
+			self state: 'timedOut'.
+			self errorDescription: 'Timed out after ', seconds printString, ' seconds' ] ].
+	^ self asStatusDictionary! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 08:34:34'!
+!McpEvalJob class methodsFor: 'debugging' stamp: 'AB 15/Sep/2026 14:00:00'!
+frameDescriptionOf: aContext
+	"Answer one debugger line for aContext, e.g. 'Symbol >> #fooBarBaz', appending
+	the receiver's class when it differs from the method's class (inherited code)."
+
+	| method receiverClass |
+	method := aContext method.
+	^ String streamContents: [ :stream |
+		stream nextPutAll: method methodClass name.
+		stream nextPutAll: ' >> '.
+		stream nextPutAll: (method selector ifNil: [ method methodClass name ] ifNotNil: [ method selector ]).
+		receiverClass := [ aContext receiver class ] on: Error do: [ :ex | nil ].
+		(receiverClass notNil and: [ receiverClass ~~ method methodClass ]) ifTrue: [
+			stream nextPutAll: '   (receiver: '.
+			stream nextPutAll: receiverClass name.
+			stream nextPutAll: ')' ] ]! !
+
+!McpEvalJob class methodsFor: 'debugging' stamp: 'AB 15/Sep/2026 14:00:00'!
+stackTraceFor: anException
+	"Answer a readable call trace for anException, one frame per line (first 30
+	frames). Empty string when no signaler context is available."
+
+	| context frames |
+	context := anException signalerContext.
+	context ifNil: [ ^ '' ].
+	frames := context stack.
+	^ String streamContents: [ :stream |
+		(frames first: (frames size min: 30)) do: [ :each |
+			stream nextPutAll: (self frameDescriptionOf: each).
+			stream newLine ] ]! !
+
+!McpEvalRequestor methodsFor: 'private' stamp: 'sf 06/Sep/2026'!
+initialize
+	super initialize.
+	workspace := Workspace new! !
+
+!McpEvalRequestor methodsFor: 'compiling' stamp: 'sf 06/Sep/2026'!
+bindingOf: aString
+	"Called by the compiler when looking up variable names during do-it compilation.
+	Delegates to a fresh Workspace so undeclared lowercase variables become
+	workspace auto-bindings (the same as an interactive Workspace do-it), while a
+	fresh Workspace per evaluation keeps state from leaking between jobs."
+	^ workspace bindingOf: aString! !
+
+!McpEvalRequestor methodsFor: 'compiling' stamp: 'sf 06/Sep/2026'!
+evaluate: aString
+	"Evaluate aString with interactive Workspace semantics: undeclared lowercase
+	variables become workspace auto-bindings (resolved via bindingOf:), instead of
+	being left as undeclared and tripping later assignment checks. Answer a
+	Dictionary: #ok -> true + #value (printString), or #ok -> false + #error.
+	While evaluating, set the global McpEvaluating flag so headless modal dialogs
+	(PopUpMenu confirm:/inform:) auto-answer instead of hanging forever."
+	| compiler methodNode method value |
+	Smalltalk at: #McpEvaluating put: true.
+^ [
+			[ "evaluate the source now"
+				compiler := Compiler new.
+				methodNode := [
+					compiler
+						compileNoPattern: aString
+						in: UndefinedObject
+						context: nil
+						notifying: self
+						ifFail: [ ^ { #ok -> false. #error -> 'compile failure' } asDictionary ] ]
+					on: UndeclaredVariableReference
+					do: [ :ex | ex resume: ex defaultAction ].
+				methodNode ifNil: [ ^ { #ok -> false. #error -> 'no method node' } asDictionary ].
+				methodNode block returnLast.
+				method := methodNode generate.
+				method methodNode: methodNode.
+				value := compiler
+					evaluateMethod: method
+					to: nil
+					logged: false
+					profiled: false.
+				{ #ok -> true. #value -> (value ifNil: [ 'nil' ] ifNotNil: [ value printString ]) } asDictionary ]
+				on: Error
+				do: [ :ex |
+					{ #ok -> false. #error -> ex description. #stack -> (McpEvalJob stackTraceFor: ex) }
+						asDictionary ] ]
+			ensure: [ Smalltalk at: #McpEvaluating put: false ]! !
+
+!McpEvalRequestor methodsFor: 'editor interface' stamp: 'sf 06/Sep/2026'!
+interactive
+	^ true! !
+
+!McpEvalRequestor methodsFor: 'editor interface' stamp: 'sf 06/Sep/2026'!
+notify: aString at: anInteger in: aStream
+	"Syntax error reporting without a UI: the compile fails via ifFail:/the
+	UndeclaredVariableReference handler. No source editing is performed."
+	^ self! !
+
+!McpEvalRequestor methodsFor: 'editor interface' stamp: 'sf 06/Sep/2026'!
+selectFrom: start to: stop
+	^ self! !
+
+!McpEvalRequestor methodsFor: 'editor interface' stamp: 'sf 06/Sep/2026'!
+selectInvisiblyFrom: start to: stop
+	^ self! !
+
+!McpEvalRequestor methodsFor: 'editor interface' stamp: 'sf 06/Sep/2026'!
+selectionInterval
+	^ 1 to: 0! !
+
+!McpEvalRequestor methodsFor: 'editor interface' stamp: 'sf 06/Sep/2026'!
+text
+	"Answer the source text for the current evaluation. Used by the Parser for
+	temp-declaration error-correction (finding pipe characters in the source).
+ Returning empty is safe: no pipe positions are found, no false removals."
+	^ ''! !
+
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 08:34:34'!
 corsAllowedOrigin
 	"Answer the allowed CORS origin, or nil when no CORS headers are sent."
 	^ corsAllowedOrigin! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 08:34:35'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 08:34:35'!
 corsAllowedOrigin: aString
 	"Set the allowed CORS origin, e.g. '*' or 'http://localhost:8080'.
 	nil (the default) disables CORS: no Access-Control-* headers are sent.
@@ -181,78 +340,78 @@ corsAllowedOrigin: aString
 	and a loopback-bound server, otherwise any website can drive the image."
 	corsAllowedOrigin := aString! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:39:55'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:39:55'!
 endpointPath
 	"Answer the HTTP path of the MCP endpoint."
 	^ endpointPath! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:39:56'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:39:56'!
 endpointPath: aString
 	"Set the HTTP path of the MCP endpoint. Takes effect on the next start."
 	endpointPath := aString! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 14/Aug/2026 09:00:00'!
 messagesPath
 	"Answer the HTTP path of the SSE messages endpoint."
 	^ messagesPath! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 14/Aug/2026 09:00:00'!
 messagesPath: aString
 	"Set the HTTP path of the SSE messages endpoint. Takes effect on the next start."
 	messagesPath := aString! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:39:59'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:39:59'!
 evalTimeout
 	"Answer the default eval timeout in seconds."
 	^ evalTimeout! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:40:00'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:40:00'!
 evalTimeout: anInteger
 	"Set the default eval timeout in seconds."
 	evalTimeout := anInteger! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:39:54'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:39:54'!
 interfaceAddress
 	"Answer the network interface address to bind. Defaults to the loopback address."
 	^ interfaceAddress! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:39:55'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:39:55'!
 interfaceAddress: aString
 	"Set the bind address (e.g. '127.0.0.1'). Takes effect on the next start."
 	interfaceAddress := aString! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:39:54'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:39:54'!
 port
 	"Answer the TCP port the MCP server listens on."
 	^ port! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:39:54'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:39:54'!
 port: anInteger
 	"Set the listen port. Takes effect on the next start."
 	port := anInteger! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:40:00'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:40:00'!
 protocolVersion
 	"Answer the supported MCP protocol version."
 	^ protocolVersion! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:40:00'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:40:00'!
 serverName
 	"Answer the server name reported during initialization."
 	^ serverName! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:40:01'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:40:01'!
 serverVersion
 	"Answer the server version reported during initialization."
 	^ serverVersion! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 09:01:29'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 09:01:29'!
 tlsCertificateFile
 	"Answer the path to a PEM file (certificate plus private key) used for TLS,
 	or nil when the server speaks plain HTTP."
 	^ tlsCertificateFile! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 09:01:30'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 09:01:30'!
 tlsCertificateFile: aPathOrNil
 	"Set the path to a PEM file (certificate plus private key) used for TLS.
 	nil (the default) keeps the server on plain HTTP. Takes effect on the next start.
@@ -263,58 +422,58 @@ tlsCertificateFile: aPathOrNil
 	The PEM must contain both the certificate and the private key."
 	tlsCertificateFile := aPathOrNil! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:39:59'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:39:59'!
 token
 	"Answer the optional bearer token, or nil when authentication is disabled."
 	^ token! !
 
-!RemoteControlMCP methodsFor: 'config' stamp: 'H9 13/Aug/2026 06:39:59'!
+!RemoteControlMCP methodsFor: 'config' stamp: 'sf 13/Aug/2026 06:39:59'!
 token: aString
 	"Set the bearer token required by the endpoint. nil disables authentication."
 	token := aString! !
 
-!RemoteControlMCP methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:40:04'!
+!RemoteControlMCP methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:40:04'!
 isRunning
 	"Answer whether the MCP server is currently listening."
 	^ server notNil! !
 
-!RemoteControlMCP methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:40:05'!
+!RemoteControlMCP methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:40:05'!
 jobCounter
 	"Answer the counter used to generate job ids."
 	^ jobCounter! !
 
-!RemoteControlMCP methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:40:05'!
+!RemoteControlMCP methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:40:05'!
 jobs
 	"Answer the dictionary of running/finished async eval jobs (jobId -> McpEvalJob)."
 	^ jobs! !
 
-!RemoteControlMCP methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:40:05'!
+!RemoteControlMCP methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:40:05'!
 methodRegistry
 	"Answer the registry mapping JSON-RPC/MCP method names to handler selectors."
 	^ methodRegistry! !
 
-!RemoteControlMCP methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:40:06'!
+!RemoteControlMCP methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:40:06'!
 server
 	"Answer the underlying WebServer, or nil when not running."
 	^ server! !
 
-!RemoteControlMCP methodsFor: 'accessing' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'accessing' stamp: 'sf 14/Aug/2026 09:00:00'!
 sessions
 	"Answer the dictionary of open SSE sessions (sessionId -> McpSseSession)."
 	^ sessions! !
 
-!RemoteControlMCP methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 06:40:06'!
+!RemoteControlMCP methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 06:40:06'!
 toolRegistry
 	"Answer the registry of MCP tools (name -> tool definition dictionary)."
 	^ toolRegistry! !
 
-!RemoteControlMCP methodsFor: 'lifecycle' stamp: 'H9 13/Aug/2026 06:40:11'!
+!RemoteControlMCP methodsFor: 'lifecycle' stamp: 'sf 13/Aug/2026 06:40:11'!
 restart
 	"Stop and start the server. Answer self."
 	self stop.
 	^ self start! !
 
-!RemoteControlMCP methodsFor: 'lifecycle' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'lifecycle' stamp: 'sf 14/Aug/2026 09:00:00'!
 start
 	"Start the MCP server on self port / interface. When tlsCertificateFile is set,
 	the server speaks HTTPS. Answer self."
@@ -330,7 +489,7 @@ start
 	server := ws.
 	^ self! !
 
-!RemoteControlMCP methodsFor: 'lifecycle' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'lifecycle' stamp: 'sf 14/Aug/2026 09:00:00'!
 stop
 	"Stop the server and terminate all running eval jobs and SSE sessions.
 	Idempotent. Answer self."
@@ -343,13 +502,13 @@ stop
 	server := nil.
 	^ self! !
 
-!RemoteControlMCP methodsFor: 'lifecycle' stamp: 'H9 13/Aug/2026 06:40:11'!
+!RemoteControlMCP methodsFor: 'lifecycle' stamp: 'sf 13/Aug/2026 06:40:11'!
 terminateAllJobs
 	"Terminate any still-running eval jobs and clear the job dictionary."
 	jobs do: [ :job | job markTimedOutIfStillRunning ].
 	jobs removeAll! !
 
-!RemoteControlMCP methodsFor: 'handlers' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'handlers' stamp: 'sf 14/Aug/2026 09:00:00'!
 applyCorsHeadersTo: aResponse
 	"Add CORS headers to aResponse when corsAllowedOrigin is configured.
 	Preflight requests are answered by McpWebServer; this covers the real
@@ -363,13 +522,13 @@ applyCorsHeadersTo: aResponse
 	aResponse headerAt: 'access-control-max-age' put: '86400'.
 	^ aResponse! !
 
-!RemoteControlMCP methodsFor: 'handlers' stamp: 'H9 13/Aug/2026 06:51:25'!
+!RemoteControlMCP methodsFor: 'handlers' stamp: 'sf 13/Aug/2026 06:51:25'!
 authorizedFor: aRequest
 	"Answer whether the request carries a valid bearer token. Without a configured
 	token every request is authorized (development mode)."
 	^ token isNil or: [ (aRequest headerAt: 'authorization') = ('Bearer ', token) ]! !
 
-!RemoteControlMCP methodsFor: 'handlers' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'handlers' stamp: 'sf 14/Aug/2026 09:00:00'!
 handleMcpRequest: aRequest
 	"HTTP handler for the MCP endpoint: GET opens an SSE stream (legacy SSE
 	transport), POST dispatches a JSON-RPC message. CORS headers are added when
@@ -388,7 +547,7 @@ handleMcpRequest: aRequest
 					self applyCorsHeadersTo: resp ] ].
 	^ self respondToMcpRequest: aRequest! !
 
-!RemoteControlMCP methodsFor: 'handlers' stamp: 'H9 13/Aug/2026 08:35:17'!
+!RemoteControlMCP methodsFor: 'handlers' stamp: 'sf 13/Aug/2026 08:35:17'!
 handleServerError: ex request: aRequest
 	"WebServer-level error handler: answer a JSON-RPC internal error instead of HTML,
 	with CORS headers when configured."
@@ -397,7 +556,7 @@ handleServerError: ex request: aRequest
 		type: 'application/json; charset=utf-8'
 		do: [ :resp | self applyCorsHeadersTo: resp ]! !
 
-!RemoteControlMCP methodsFor: 'handlers' stamp: 'H9 13/Aug/2026 08:35:21'!
+!RemoteControlMCP methodsFor: 'handlers' stamp: 'sf 13/Aug/2026 08:35:21'!
 respondToMcpRequest: aRequest
 	"Dispatch the request body as JSON-RPC and answer a JSON response. A notification
 	answers with an empty 200. CORS headers are added when configured."
@@ -410,7 +569,7 @@ respondToMcpRequest: aRequest
 		contentType: 'application/json; charset=utf-8'
 		do: [ :resp | self applyCorsHeadersTo: resp ]! !
 
-!RemoteControlMCP methodsFor: 'handlers' stamp: 'H9 13/Aug/2026 08:35:16'!
+!RemoteControlMCP methodsFor: 'handlers' stamp: 'sf 13/Aug/2026 08:35:16'!
 unauthorizedResponseTo: aRequest
 	^ aRequest sendResponseCode: 401
 		content: 'Unauthorized' asUtf8Bytes
@@ -419,13 +578,13 @@ unauthorizedResponseTo: aRequest
 			resp headerAt: 'Connection' put: 'close'.
 			self applyCorsHeadersTo: resp ]! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 closeSseSession: aSession
 	"Remove the session from the registry and close its stream."
 	self sessions removeKey: aSession id ifAbsent: [ nil ].
 	aSession close! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 handleMessagesRequest: aRequest
 	"HTTP handler for the SSE messages endpoint: dispatch the JSON-RPC body and
 	push the response over the session's event stream, answering HTTP 202."
@@ -445,7 +604,7 @@ handleMessagesRequest: aRequest
 		type: 'text/plain'
 		do: [ :resp | self applyCorsHeadersTo: resp ]! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 handleSseRequest: aRequest
 	"Open an SSE stream for the request connection: write the HTTP headers and the
 	endpoint event, then keep the stream alive until the client disconnects. Runs
@@ -462,18 +621,18 @@ handleSseRequest: aRequest
 	self closeSseSession: session.
 	^ session! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 messagesEndpointFor: aSessionId
 	"Answer the relative endpoint URL the client POSTs JSON-RPC messages to."
 	^ self messagesPath, '?sessionId=', aSessionId! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 newSseSessionId
 	"Answer a fresh SSE session id."
 	sessionCounter := sessionCounter + 1.
 	^ 'session-', sessionCounter printString! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 pushDispatchForRequest: aRequest to: aSession
 	"Dispatch the JSON-RPC request body and push the response (if any) as an SSE
 	message event. Notifications produce no event."
@@ -482,14 +641,14 @@ pushDispatchForRequest: aRequest to: aSession
 	response ifNotNil: [ aSession sendMessageEvent: (self jsonEncode: response) ].
 	^ aSession! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 pushErrorTo: aSession error: aDescription
 	"Push a JSON-RPC internal error event to the session."
 	aSession sendMessageEvent:
 		(self jsonEncode: (self jsonRpcErrorCode: -32603 message: aDescription id: nil)).
 	^ aSession! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 runSseSession: aSession
 	"Keep the SSE stream alive with periodic comment frames until the session
 	closes. Runs in the connection's process, which blocks here."
@@ -497,7 +656,7 @@ runSseSession: aSession
 		aSession sendKeepAlive.
 		(Delay forMilliseconds: 15000) wait ]! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 sessionForRequest: aRequest
 	"Answer the SSE session named in the request's sessionId query parameter,
 	or nil when absent or unknown."
@@ -505,7 +664,7 @@ sessionForRequest: aRequest
 		at: (aRequest getFields at: 'sessionId' ifAbsent: [ nil ])
 		ifAbsent: [ nil ]! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 sseResponseHeaders
 	"Answer the HTTP headers that open an SSE stream, including the CORS origin
 	header when configured."
@@ -518,13 +677,13 @@ sseResponseHeaders
 		(origin ifNil: [ '' ] ifNotNil: [ 'Access-Control-Allow-Origin: ', origin, String crlfString ]),
 		String crlfString! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 terminateAllSessions
 	"Close all open SSE sessions and clear the registry."
 	self sessions do: [ :session | session close ].
 	self sessions removeAll! !
 
-!RemoteControlMCP methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 writeSseHandshakeFor: aSession
 	"Write the HTTP 200 headers and the endpoint event that announces the messages
 	endpoint for this session. Bytes are written as UTF-8, the same way regular
@@ -533,7 +692,7 @@ writeSseHandshakeFor: aSession
 	aSession sendEndpointEvent: (self messagesEndpointFor: aSession id).
 	aSession stream flush! !
 
-!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'H9 13/Aug/2026 06:40:38'!
+!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'sf 13/Aug/2026 06:40:38'!
 dispatchJsonRpcMessage: message
 	"Validate a parsed JSON-RPC request and dispatch it to the method registry.
 	A missing id makes the message a notification, answered by nil."
@@ -550,7 +709,7 @@ dispatchJsonRpcMessage: message
 	id ifNil: [ ^ self handleNotification: method params: params ].
 	^ self handleRequest: method params: params id: id! !
 
-!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'H9 13/Aug/2026 06:40:23'!
+!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'sf 13/Aug/2026 06:40:23'!
 dispatchJsonRpcString: aString
 	"Parse a JSON-RPC message and answer the response dictionary, or nil for a
 	notification. Parse errors answer a -32700 error response."
@@ -560,7 +719,7 @@ dispatchJsonRpcString: aString
 	(message isKindOf: Dictionary) ifFalse: [ ^ self jsonRpcErrorCode: -32600 message: 'Invalid Request' id: nil ].
 	^ self dispatchJsonRpcMessage: message! !
 
-!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'H9 13/Aug/2026 06:40:27'!
+!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'sf 13/Aug/2026 06:40:27'!
 handleNotification: method params: params
 	"Perform a notification handler. Notifications never produce a response."
 	| selector |
@@ -568,7 +727,7 @@ handleNotification: method params: params
 	self perform: selector with: params.
 	^ nil! !
 
-!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'H9 13/Aug/2026 06:40:26'!
+!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'sf 13/Aug/2026 06:40:26'!
 handleRequest: method params: params id: id
 	"Look up the method handler and perform it, wrapping any error in a -32603 response."
 	| selector |
@@ -576,24 +735,24 @@ handleRequest: method params: params id: id
 	^ [ self jsonRpcResult: (self perform: selector with: params) id: id ]
 		on: Error do: [ :ex | self jsonRpcErrorCode: -32603 message: ex description id: id ]! !
 
-!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'H9 13/Aug/2026 06:40:28'!
+!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'sf 13/Aug/2026 06:40:28'!
 jsonRpcErrorCode: code message: aMessage id: id
 	^ Dictionary newFromPairs: {
 		'jsonrpc'. '2.0'.
 		'error'. (Dictionary newFromPairs: { 'code'. code. 'message'. aMessage }).
 		'id'. id }! !
 
-!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'H9 13/Aug/2026 06:40:27'!
+!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'sf 13/Aug/2026 06:40:27'!
 jsonRpcResult: result id: id
 	^ Dictionary newFromPairs: { 'jsonrpc'. '2.0'. 'result'. result. 'id'. id }! !
 
-!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'H9 13/Aug/2026 06:40:28'!
+!RemoteControlMCP methodsFor: 'jsonrpc' stamp: 'sf 13/Aug/2026 06:40:28'!
 registerMethod: aName handler: aSelector
 	"Register a JSON-RPC/MCP method name with its handler selector."
 	methodRegistry at: aName put: aSelector.
 	^ self! !
 
-!RemoteControlMCP methodsFor: 'mcp' stamp: 'H9 13/Aug/2026 06:40:44'!
+!RemoteControlMCP methodsFor: 'mcp' stamp: 'sf 13/Aug/2026 06:40:44'!
 initializeWithParams: params
 	"Answer the initialize result: negotiated protocol version, server capabilities
 	and server info."
@@ -606,24 +765,24 @@ initializeWithParams: params
 		'serverInfo'. (Dictionary newFromPairs: { 'name'. self serverName. 'version'. self serverVersion }).
 		'instructions'. self instructions }! !
 
-!RemoteControlMCP methodsFor: 'mcp' stamp: 'H9 13/Aug/2026 06:40:45'!
+!RemoteControlMCP methodsFor: 'mcp' stamp: 'sf 13/Aug/2026 06:40:45'!
 initializedNotification: params
 	"Notification: the client has finished initialization. Nothing to do."
 	^ nil! !
 
-!RemoteControlMCP methodsFor: 'mcp' stamp: 'H9 13/Aug/2026 06:40:45'!
+!RemoteControlMCP methodsFor: 'mcp' stamp: 'sf 13/Aug/2026 06:40:45'!
 instructions
 	"Answer short usage instructions sent to the client during initialization."
 	^ 'Use tools/eval to run Smalltalk code, tools/compile_method to add methods, '
 		, 'tools/screenshot to capture the world, and tools/list_classes / tools/class_summary '
 		, '/ tools/image_status for introspection. Long evals: pass async:true and poll tools/eval_status.'! !
 
-!RemoteControlMCP methodsFor: 'mcp' stamp: 'H9 13/Aug/2026 06:40:45'!
+!RemoteControlMCP methodsFor: 'mcp' stamp: 'sf 13/Aug/2026 06:40:45'!
 ping: params
 	"Answer the empty result required by ping."
 	^ Dictionary new! !
 
-!RemoteControlMCP methodsFor: 'mcp' stamp: 'H9 13/Aug/2026 06:40:43'!
+!RemoteControlMCP methodsFor: 'mcp' stamp: 'sf 13/Aug/2026 06:40:43'!
 registerMethods
 	"Register the JSON-RPC/MCP method names with their handler selectors."
 	self
@@ -637,7 +796,7 @@ registerMethods
 		registerMethod: 'prompts/list' handler: #promptsList:;
 		registerMethod: 'prompts/get' handler: #promptsGet:! !
 
-!RemoteControlMCP methodsFor: 'mcp' stamp: 'H9 13/Aug/2026 06:40:47'!
+!RemoteControlMCP methodsFor: 'mcp' stamp: 'sf 13/Aug/2026 06:40:47'!
 toolsCall: params
 	"Invoke a tool. Success results are content arrays; tool errors carry isError."
 	| name arguments result |
@@ -649,12 +808,12 @@ toolsCall: params
 		ifTrue: [ Dictionary newFromPairs: { 'content'. result } ]
 		ifFalse: [ result ]! !
 
-!RemoteControlMCP methodsFor: 'mcp' stamp: 'H9 13/Aug/2026 06:40:46'!
+!RemoteControlMCP methodsFor: 'mcp' stamp: 'sf 13/Aug/2026 06:40:46'!
 toolsList: params
 	"Answer the list of available tools. Pagination is not needed for this small set."
 	^ Dictionary newFromPairs: { 'tools'. self toolDefinitions }! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:54'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:54'!
 callTool: aName arguments: arguments
 	"Invoke a tool by name. Unknown tools answer a tool error result."
 	| def |
@@ -663,7 +822,7 @@ callTool: aName arguments: arguments
 	^ [ self perform: (def at: 'implementation') with: arguments ]
 		on: Error do: [ :ex | self toolErrorResult: ex description ]! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:19'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:19'!
 classSummaryTool: arguments
 	"Answer a JSON summary of a class."
 	| name cls summary |
@@ -680,13 +839,13 @@ classSummaryTool: arguments
 		'methods'. (cls selectors asSortedCollection asArray) }.
 	^ self toolTextResult: (WebUtils jsonEncode: summary)! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:15'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:15'!
 compile: source into: aClass isClassSide: isClassSide category: aCategory
 	| target |
 	target := isClassSide ifTrue: [ aClass class ] ifFalse: [ aClass ].
 	^ target safelyCompile: source classified: aCategory! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:15'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:15'!
 compileMethodTool: arguments
 	"Compile a method into a class. Answer the compiled selector."
 	| className source target |
@@ -701,7 +860,7 @@ compileMethodTool: arguments
 			category: (arguments at: 'category' ifAbsent: [ 'as yet unclassified' ])) ]
 		on: Error do: [ :ex | self toolErrorResult: ex description ]! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:13'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:13'!
 evalStatusTool: arguments
 	"Answer the JSON status dictionary of an async eval job."
 	| jobId job |
@@ -711,10 +870,11 @@ evalStatusTool: arguments
 	job ifNil: [ ^ self toolErrorResult: 'Unknown job: ', jobId ].
 	^ self toolTextResult: (WebUtils jsonEncode: job asStatusDictionary)! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:55:29'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 06/Sep/2026'!
 evalTool: arguments
 	"Evaluate Smalltalk source. Synchronous until the timeout, or start a background
-	job when async:true is given."
+	job when async:true is given. On sync timeout the job keeps running in the
+	background and the answer carries its jobId for eval_status polling."
 	| source timeoutSeconds isAsync outcome |
 	source := arguments at: 'source' ifAbsent: [ nil ].
 	source ifNil: [ ^ self toolErrorResult: 'Missing argument: source' ].
@@ -724,15 +884,16 @@ evalTool: arguments
 		ifTrue: [ self toolTextResult: (WebUtils jsonEncode: (self startAsyncEval: source timeout: timeoutSeconds)) ]
 		ifFalse: [
 			outcome := self evaluateSource: source timeout: timeoutSeconds.
-			(outcome at: 'status') = 'done'
-				ifTrue: [ self toolTextResult: (outcome at: 'result') ]
-				ifFalse: [ self toolErrorResult: (outcome at: 'error') ] ]! !
+			(outcome at: 'status') caseOf: {
+				[ 'done' ] -> [ self toolTextResult: (outcome at: 'result') ].
+				[ 'running' ] -> [ self toolTextResult: 'Still running (jobId: ', (outcome at: 'jobId'), '). Poll with eval_status or abort with eval_cancel.' ] }
+				otherwise: [ self toolErrorResult: (outcome at: 'error') ] ]! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:56'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:56'!
 imageContent: base64String
 	^ Dictionary newFromPairs: { 'type'. 'image'. 'data'. base64String. 'mimeType'. 'image/png' }! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:20'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:20'!
 imageStatus
 	"Answer a dictionary describing the running image."
 	^ Dictionary newFromPairs: {
@@ -742,26 +903,26 @@ imageStatus
 		'os'. Smalltalk osVersion.
 		'now'. DateAndTime now printString }! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:19'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:19'!
 imageStatusTool: arguments
 	"Answer a JSON summary of the running image."
 	^ self toolTextResult: (WebUtils jsonEncode: self imageStatus)! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:18'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:18'!
 listClassesTool: arguments
 	"Answer all class names, one per line."
 	| names |
 	names := (Smalltalk allClasses collect: [ :c | c name ]) asSortedCollection asArray.
 	^ self toolTextResult: (String newLineString join: names)! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:17'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:17'!
 pngBase64Of: aForm
 	"Answer the base64-encoded PNG bytes of aForm."
 	| bytes |
 	bytes := ByteArray streamContents: [ :s | PNGReadWriter putForm: aForm onStream: s ].
 	^ (Base64MimeConverter mimeEncode: bytes readStream multiLine: false atStart: true) contents! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:07'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:07'!
 registerClassSummaryTool
 	self registerTool: 'class_summary'
 		description: 'Answer a JSON summary of a class: superclass, instance variables, method counts and method names.'
@@ -772,7 +933,7 @@ registerClassSummaryTool
 			'required'. #('name') })
 		implementation: #classSummaryTool:! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:04'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:04'!
 registerCompileMethodTool
 	self registerTool: 'compile_method'
 		description: 'Compile a Smalltalk method into a class, using safelyCompile:classified:. Answer the compiled selector.'
@@ -786,7 +947,7 @@ registerCompileMethodTool
 			'required'. #('className' 'source') })
 		implementation: #compileMethodTool:! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:03'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:03'!
 registerEvalStatusTool
 	self registerTool: 'eval_status'
 		description: 'Poll the status and result of an asynchronous eval job started with eval (async:true).'
@@ -797,7 +958,7 @@ registerEvalStatusTool
 			'required'. #('jobId') })
 		implementation: #evalStatusTool:! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:02'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:02'!
 registerEvalTool
 	self registerTool: 'eval'
 		description: 'Evaluate Smalltalk source code in the Cuis image. Synchronous until the timeout by default; pass async:true to start a background job and poll it with eval_status.'
@@ -810,21 +971,21 @@ registerEvalTool
 			'required'. #('source') })
 		implementation: #evalTool:! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:07'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:07'!
 registerImageStatusTool
 	self registerTool: 'image_status'
 		description: 'Answer a JSON summary of the running Cuis image: name, update level, VM and OS.'
 		inputSchema: (Dictionary newFromPairs: { 'type'. 'object'. 'properties'. (Dictionary new). 'required'. #() })
 		implementation: #imageStatusTool:! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:06'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:06'!
 registerListClassesTool
 	self registerTool: 'list_classes'
 		description: 'List the names of all classes in the image, one per line.'
 		inputSchema: (Dictionary newFromPairs: { 'type'. 'object'. 'properties'. (Dictionary new). 'required'. #() })
 		implementation: #listClassesTool:! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:05'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:05'!
 registerScreenshotTool
 	self registerTool: 'screenshot'
 		description: 'Capture a PNG of the Cuis world (base64-encoded image content). Optional morph crop by class name with a pad margin.'
@@ -836,7 +997,163 @@ registerScreenshotTool
 			'required'. #() })
 		implementation: #screenshotTool:! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:52'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+registerMethodSourceTool
+	self registerTool: 'method_source'
+		description: 'Answer the source of a method (Class >> selector, category, code). With includeSuperclasses:true the nearest defining class in the ancestry is named.'
+		inputSchema: (Dictionary newFromPairs: {
+			'type'. 'object'.
+			'properties'. (Dictionary newFromPairs: {
+				'className'. (self schemaStringProperty: 'Class to look up').
+				'selector'. (self schemaStringProperty: 'Method selector').
+				'includeSuperclasses'. (self schemaBooleanProperty: 'Search superclasses when the class does not define it (default false)') }).
+			'required'. #('className' 'selector') })
+		implementation: #methodSourceTool:! !
+
+!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+registerSelectorUsageTool
+	self registerTool: 'selector_usage'
+		description: 'Answer who implements and who sends a selector, one Class >> selector per line.'
+		inputSchema: (Dictionary newFromPairs: {
+			'type'. 'object'.
+			'properties'. (Dictionary newFromPairs: {
+				'selector'. (self schemaStringProperty: 'Selector symbol to search for') }).
+			'required'. #('selector') })
+		implementation: #selectorUsageTool:! !
+
+!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+registerClassHierarchyTool
+	self registerTool: 'class_hierarchy'
+		description: 'Answer a class''s ancestry and an indented descendant tree.'
+		inputSchema: (Dictionary newFromPairs: {
+			'type'. 'object'.
+			'properties'. (Dictionary newFromPairs: {
+				'className'. (self schemaStringProperty: 'Class name') }).
+			'required'. #('className') })
+		implementation: #classHierarchyTool:! !
+
+!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+definingClassOf: aSelector in: aClass includeSuperclasses: includeSuperclasses
+	"Answer the first class in aClass's hierarchy that defines aSelector, or nil."
+	includeSuperclasses ifFalse: [
+		^ (aClass includesSelector: aSelector) ifTrue: [ aClass ] ifFalse: [ nil ] ].
+	^ aClass withAllSuperclasses
+		detect: [ :each | each includesSelector: aSelector ]
+		ifNone: [ nil ]! !
+
+!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+referenceListTextFor: aCollection
+	"Answer the method references of aCollection as one 'Class >> selector' line per
+	entry, capped at 40 lines."
+	| max shown |
+	max := 40.
+	shown := 0.
+	^ String streamContents: [ :stream |
+		aCollection do: [ :each |
+			(shown < max) ifTrue: [
+				stream nextPutAll: each methodClass name.
+				stream nextPutAll: ' >> '.
+				stream nextPutAll: each selector.
+				stream newLine.
+				shown := shown + 1 ] ].
+		(aCollection size > max) ifTrue: [
+			stream nextPutAll: '... +'; print: aCollection size - max; nextPutAll: ' more'; newLine ] ]! !
+
+!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+descendantTreeTextFor: aClass
+	"Answer an indented descendant tree using dashes for levels, capped at 300 entries."
+	^ String streamContents: [ :stream |
+		| shown |
+		shown := 0.
+		aClass allSubclassesWithLevelDo: [ :each :level |
+			(shown < 300) ifTrue: [
+				stream nextPutAll: ((String new: level + 1) atAllPut: $-; yourself).
+				stream nextPutAll: each name.
+				stream newLine.
+				shown := shown + 1 ] ]
+			startingLevel: 0.
+		shown = 0 ifTrue: [ stream nextPutAll: '(none)'; newLine ] ]! !
+
+!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+methodSourceTool: arguments
+	"Answer the source of a method. With includeSuperclasses: true the nearest
+	defining class in the ancestry is named."
+	| className selector includeSuperclasses cls definingClass reference |
+	className := arguments at: 'className' ifAbsent: [ nil ].
+	selector := arguments at: 'selector' ifAbsent: [ nil ].
+	className ifNil: [ ^ self toolErrorResult: 'Missing argument: className' ].
+	selector ifNil: [ ^ self toolErrorResult: 'Missing argument: selector' ].
+	cls := Smalltalk classNamed: className.
+	cls ifNil: [ ^ self toolErrorResult: 'Unknown class: ', className ].
+	includeSuperclasses := arguments at: 'includeSuperclasses' ifAbsent: [ false ].
+	definingClass := self definingClassOf: selector asSymbol in: cls includeSuperclasses: includeSuperclasses.
+	definingClass ifNil: [
+		^ self toolErrorResult: 'No implementor of #', selector, ' in ', className,
+			(includeSuperclasses ifTrue: [ ' or its superclasses' ] ifFalse: [ '' ]) ].
+	reference := MethodReference class: definingClass selector: selector asSymbol.
+	^ self toolTextResult: (String streamContents: [ :stream |
+		stream nextPutAll: cls name.
+		stream nextPutAll: ' >> '.
+		stream nextPutAll: selector.
+		(definingClass ~~ cls) ifTrue: [
+			stream nextPutAll: '   (defined in: '.
+			stream nextPutAll: definingClass name.
+			stream nextPutAll: ')' ].
+		stream newLine.
+		stream nextPutAll: '(category: '.
+		stream nextPutAll: reference category asString.
+		stream nextPutAll: ')'.
+		stream newLine; newLine.
+		stream nextPutAll: reference sourceCode ])! !
+
+!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+selectorUsageTool: arguments
+	"Answer who implements and who sends a selector, one Class >> selector per line."
+	| selector implementors senders |
+	selector := arguments at: 'selector' ifAbsent: [ nil ].
+	selector ifNil: [ ^ self toolErrorResult: 'Missing argument: selector' ].
+	selector := selector asSymbol.
+	implementors := Smalltalk allImplementorsOf: selector.
+	senders := Smalltalk allCallsOn: selector.
+	^ self toolTextResult: (String streamContents: [ :stream |
+		stream nextPutAll: 'Implementors of #'.
+		stream nextPutAll: selector.
+		stream nextPutAll: ' ('.
+		stream print: implementors size.
+		stream nextPutAll: ')'.
+		stream newLine.
+		stream nextPutAll: (self referenceListTextFor: implementors).
+		stream newLine.
+		stream nextPutAll: 'Senders of #'.
+		stream nextPutAll: selector.
+		stream nextPutAll: ' ('.
+		stream print: senders size.
+		stream nextPutAll: ')'.
+		stream newLine.
+		stream nextPutAll: (self referenceListTextFor: senders) ])! !
+
+!RemoteControlMCP methodsFor: 'tools' stamp: 'AB 15/Sep/2026 14:00:00'!
+classHierarchyTool: arguments
+	"Answer ancestry plus an indented descendant tree for a class."
+	| className cls |
+	className := arguments at: 'className' ifAbsent: [ nil ].
+	className ifNil: [ ^ self toolErrorResult: 'Missing argument: className' ].
+	cls := Smalltalk classNamed: className.
+	cls ifNil: [ ^ self toolErrorResult: 'Unknown class: ', className ].
+	^ self toolTextResult: (String streamContents: [ :stream |
+		stream nextPutAll: 'Ancestry of '.
+		stream nextPutAll: cls name.
+		stream nextPutAll: ' (self first):'.
+		stream newLine.
+		stream nextPutAll: '  '.
+		stream nextPutAll: (String newLineString join: (cls withAllSuperclasses collect: [ :each | each name ])).
+		stream newLine; newLine.
+		stream nextPutAll: 'Descendants of '.
+		stream nextPutAll: cls name.
+		stream newLine.
+		stream nextPutAll: (self descendantTreeTextFor: cls) ])! !
+
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:52'!
 registerTool: aName description: aDescription inputSchema: schema implementation: aSelector
 	"Register one tool definition together with its implementation selector."
 	toolRegistry at: aName put: (Dictionary newFromPairs: {
@@ -847,31 +1164,63 @@ registerTool: aName description: aDescription inputSchema: schema implementation
 		'implementation'. aSelector }).
 	^ self! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:51'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 06/Sep/2026'!
+cancelEvalTool: arguments
+	"Terminate a running eval job (by jobId) started with eval async:true or still
+	running after a sync timeout. Answer the job final status; a running job is
+	reported as 'cancelled', a finished one stays as it was."
+	| jobId job status |
+	jobId := arguments at: 'jobId' ifAbsent: [ nil ].
+	jobId ifNil: [ ^ self toolErrorResult: 'Missing argument: jobId' ].
+	job := self jobs at: jobId ifAbsent: [ nil ].
+	job ifNil: [ ^ self toolErrorResult: 'Unknown job: ', jobId ].
+	job isRunning
+		ifTrue: [ job terminate. job state: 'cancelled' ]
+		ifFalse: [ job state: 'cancelled' ].
+	self jobs removeKey: jobId ifAbsent: [ ].
+	status := job asStatusDictionary.
+	^ self toolTextResult: (WebUtils jsonEncode: status)! !
+
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 06/Sep/2026'!
+registerCancelEvalTool
+	self registerTool: 'eval_cancel'
+		description: 'Terminate a running eval job (by jobId) started with eval async:true or still running after a sync timeout. Answers the job final status.'
+		inputSchema: (Dictionary newFromPairs: {
+			'type'. 'object'.
+			'properties'. (Dictionary newFromPairs: {
+				'jobId'. (self schemaStringProperty: 'Job id returned by eval with async:true') }).
+			'required'. #('jobId') })
+		implementation: #cancelEvalTool:! !
+
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 06/Sep/2026'!
 registerTools
 	"Register all MCP tools."
 	self
 		registerEvalTool;
 		registerEvalStatusTool;
+		registerCancelEvalTool;
 		registerCompileMethodTool;
 		registerScreenshotTool;
 		registerListClassesTool;
 		registerClassSummaryTool;
-		registerImageStatusTool! !
+		registerImageStatusTool;
+		registerMethodSourceTool;
+		registerSelectorUsageTool;
+		registerClassHierarchyTool! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:58'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:58'!
 schemaBooleanProperty: aDescription
 	^ Dictionary newFromPairs: { 'type'. 'boolean'. 'description'. aDescription }! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:57'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:57'!
 schemaNumberProperty: aDescription
 	^ Dictionary newFromPairs: { 'type'. 'number'. 'description'. aDescription }! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:57'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:57'!
 schemaStringProperty: aDescription
 	^ Dictionary newFromPairs: { 'type'. 'string'. 'description'. aDescription }! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:41:16'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:41:16'!
 screenshotTool: arguments
 	"Capture the world as a base64 PNG. Optional crop to the first morph of a class."
 	| form rect |
@@ -882,11 +1231,11 @@ screenshotTool: arguments
 	rect ifNotNil: [ form := form copy: rect ].
 	^ Array with: (self imageContent: (self pngBase64Of: form))! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:56'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:56'!
 textContent: aString
 	^ Dictionary newFromPairs: { 'type'. 'text'. 'text'. aString }! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:53'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:53'!
 toolDefinitionForList: def
 	^ Dictionary newFromPairs: {
 		'name'. (def at: 'name').
@@ -894,45 +1243,48 @@ toolDefinitionForList: def
 		'description'. (def at: 'description').
 		'inputSchema'. (def at: 'inputSchema') }! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:55'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:55'!
 toolDefinitionForName: aName
 	^ toolRegistry at: aName ifAbsent: [ nil ]! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:53'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:53'!
 toolDefinitions
 	"Answer the JSON-safe list of tool definitions (without the internal implementation key)."
 	^ (toolRegistry values collect: [ :def | self toolDefinitionForList: def ]) asArray! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:56'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:56'!
 toolErrorResult: aString
 	"Answer an error tool result carrying isError."
 	^ Dictionary newFromPairs: {
 		'content'. (Array with: (self textContent: aString)).
 		'isError'. true }! !
 
-!RemoteControlMCP methodsFor: 'tools' stamp: 'H9 13/Aug/2026 06:40:55'!
+!RemoteControlMCP methodsFor: 'tools' stamp: 'sf 13/Aug/2026 06:40:55'!
 toolTextResult: aString
 	"Answer a success tool result with one text content item."
 	^ Array with: (self textContent: aString)! !
 
-!RemoteControlMCP methodsFor: 'eval' stamp: 'H9 13/Aug/2026 06:42:54'!
+!RemoteControlMCP methodsFor: 'eval' stamp: 'sf 06/Sep/2026'!
 evaluateSource: aSource timeout: timeoutSeconds
 	"Evaluate aSource in a forked process and wait for it up to timeoutSeconds.
-	Answer a status dictionary (status ok/error/timedOut)."
+	The job is registered from the start: on timeout it keeps running in the
+	background (nothing is killed, no work is lost) and the caller receives a
+	'running' status with the jobId, to poll via eval_status. Answer the job's
+	status dictionary (status done/error/running)."
 	| job |
 	job := McpEvalJob new.
 	job id: self newJobId; source: aSource; timeout: timeoutSeconds.
+	self jobs at: job id put: job.
 	job run.
-	job waitForCompletionUpTo: timeoutSeconds.
-	^ job asStatusDictionary! !
+	^ job waitForCompletionUpTo: timeoutSeconds killOnTimeout: false! !
 
-!RemoteControlMCP methodsFor: 'eval' stamp: 'H9 13/Aug/2026 06:41:27'!
+!RemoteControlMCP methodsFor: 'eval' stamp: 'sf 13/Aug/2026 06:41:27'!
 newJobId
 	"Answer a fresh job id."
 	jobCounter := jobCounter + 1.
 	^ 'job-', jobCounter printString! !
 
-!RemoteControlMCP methodsFor: 'eval' stamp: 'H9 13/Aug/2026 06:55:08'!
+!RemoteControlMCP methodsFor: 'eval' stamp: 'sf 13/Aug/2026 06:55:08'!
 startAsyncEval: aSource timeout: timeoutSeconds
 	"Start a background evaluation with a watchdog, and answer a status dictionary
 	with the job id. The watchdog runs at user priority, above the eval process,
@@ -946,7 +1298,7 @@ startAsyncEval: aSource timeout: timeoutSeconds
 		forkAt: Processor userSchedulingPriority named: 'McpEvalWatchdog-', job id.
 	^ Dictionary newFromPairs: { 'jobId'. job id. 'status'. 'running' }! !
 
-!RemoteControlMCP methodsFor: 'private' stamp: 'H9 13/Aug/2026 06:41:30'!
+!RemoteControlMCP methodsFor: 'private' stamp: 'sf 13/Aug/2026 06:41:30'!
 cropRectFor: morph pad: pad in: bigRect
 	"World-coordinate crop rectangle for morph: its displayFullBounds expanded by pad
 	on every side, then clamped to the form."
@@ -954,7 +1306,7 @@ cropRectFor: morph pad: pad in: bigRect
 	b := morph displayFullBounds.
 	^ ((b origin - pad) corner: (b corner + pad)) intersect: bigRect! !
 
-!RemoteControlMCP methodsFor: 'private' stamp: 'H9 13/Aug/2026 06:41:28'!
+!RemoteControlMCP methodsFor: 'private' stamp: 'sf 13/Aug/2026 06:41:28'!
 cropRectForMorphNamed: aName pad: pad in: bigRect
 	"Answer the crop rectangle for the first morph of the named class, or nil when
 	no morph name is given. Raises Error when the morph is not found."
@@ -963,7 +1315,7 @@ cropRectForMorphNamed: aName pad: pad in: bigRect
 		ifNil: [ self error: 'Morph not found: ', aName ]
 		ifNotNil: [ :morph | self cropRectFor: morph pad: pad in: bigRect ]! !
 
-!RemoteControlMCP methodsFor: 'private' stamp: 'H9 13/Aug/2026 06:41:29'!
+!RemoteControlMCP methodsFor: 'private' stamp: 'sf 13/Aug/2026 06:41:29'!
 firstMorphOfClassNamed: aName
 	"Answer the first morph in the world whose class name matches, or nil."
 	| found |
@@ -972,7 +1324,7 @@ firstMorphOfClassNamed: aName
 		(found isNil and: [ m class name asString = aName ]) ifTrue: [ found := m ] ].
 	^ found! !
 
-!RemoteControlMCP methodsFor: 'private' stamp: 'H9 14/Aug/2026 09:00:00'!
+!RemoteControlMCP methodsFor: 'private' stamp: 'sf 14/Aug/2026 09:00:00'!
 initialize
 	super initialize.
 	port := self class defaultPort.
@@ -994,25 +1346,25 @@ initialize
 	self registerMethods.
 	self registerTools! !
 
-!RemoteControlMCP methodsFor: 'private' stamp: 'H9 13/Aug/2026 06:46:00'!
+!RemoteControlMCP methodsFor: 'private' stamp: 'sf 13/Aug/2026 06:46:00'!
 interfaceAddressBytes
 	"Answer the interface address as a 4-byte IPv4 ByteArray for the VM socket primitive."
 	^ ((interfaceAddress findTokens: '.') collect: [ :part | Integer readFrom: part readStream ]) asByteArray! !
 
-!RemoteControlMCP methodsFor: 'private' stamp: 'H9 13/Aug/2026 06:41:27'!
+!RemoteControlMCP methodsFor: 'private' stamp: 'sf 13/Aug/2026 06:41:27'!
 jsonDecode: aString
 	^ WebUtils jsonDecode: aString readStream! !
 
-!RemoteControlMCP methodsFor: 'private' stamp: 'H9 13/Aug/2026 06:41:27'!
+!RemoteControlMCP methodsFor: 'private' stamp: 'sf 13/Aug/2026 06:41:27'!
 jsonEncode: anObject
 	^ WebUtils jsonEncode: anObject! !
 
-!RemoteControlMCP methodsFor: 'resources' stamp: 'H9 13/Aug/2026 06:41:34'!
+!RemoteControlMCP methodsFor: 'resources' stamp: 'sf 13/Aug/2026 06:41:34'!
 resourcesList: params
 	"Answer the list of readable resources."
 	^ Dictionary newFromPairs: { 'resources'. (Array with: self statusResourceDefinition) }! !
 
-!RemoteControlMCP methodsFor: 'resources' stamp: 'H9 13/Aug/2026 06:41:35'!
+!RemoteControlMCP methodsFor: 'resources' stamp: 'sf 13/Aug/2026 06:41:35'!
 resourcesRead: params
 	"Read a resource by uri. Currently only image://status is supported."
 	| uri |
@@ -1020,21 +1372,21 @@ resourcesRead: params
 	uri = 'image://status' ifFalse: [ self error: 'Unknown resource: ', uri asString ].
 	^ Dictionary newFromPairs: { 'contents'. (Array with: self statusResourceContents) }! !
 
-!RemoteControlMCP methodsFor: 'resources' stamp: 'H9 13/Aug/2026 06:41:36'!
+!RemoteControlMCP methodsFor: 'resources' stamp: 'sf 13/Aug/2026 06:41:36'!
 statusResourceContents
 	^ Dictionary newFromPairs: {
 		'uri'. 'image://status'.
 		'mimeType'. 'application/json'.
 		'text'. (WebUtils jsonEncode: self imageStatus) }! !
 
-!RemoteControlMCP methodsFor: 'resources' stamp: 'H9 13/Aug/2026 06:41:35'!
+!RemoteControlMCP methodsFor: 'resources' stamp: 'sf 13/Aug/2026 06:41:35'!
 statusResourceDefinition
 	^ Dictionary newFromPairs: {
 		'uri'. 'image://status'.
 		'name'. 'Cuis Image Status'.
 		'mimeType'. 'application/json' }! !
 
-!RemoteControlMCP methodsFor: 'prompts' stamp: 'H9 13/Aug/2026 06:41:38'!
+!RemoteControlMCP methodsFor: 'prompts' stamp: 'sf 13/Aug/2026 06:41:38'!
 developerPromptDefinition
 	^ Dictionary newFromPairs: {
 		'name'. 'develop-in-cuis'.
@@ -1044,7 +1396,7 @@ developerPromptDefinition
 			'description'. 'What you want to build'.
 			'required'. true })) }! !
 
-!RemoteControlMCP methodsFor: 'prompts' stamp: 'H9 13/Aug/2026 06:41:38'!
+!RemoteControlMCP methodsFor: 'prompts' stamp: 'sf 13/Aug/2026 06:41:38'!
 promptsGet: params
 	"Answer a prompt by name. Only 'develop-in-cuis' is provided."
 	| name |
@@ -1058,31 +1410,46 @@ promptsGet: params
 				'type'. 'text'.
 				'text'. 'You are a Cuis-Smalltalk developer. Use tools/eval to run code, tools/compile_method to add methods, and tools/screenshot to see the world.' }) })) }! !
 
-!RemoteControlMCP methodsFor: 'prompts' stamp: 'H9 13/Aug/2026 06:41:36'!
+!RemoteControlMCP methodsFor: 'prompts' stamp: 'sf 13/Aug/2026 06:41:36'!
 promptsList: params
 	"Answer the list of available prompts."
 	^ Dictionary newFromPairs: { 'prompts'. (Array with: self developerPromptDefinition) }! !
 
-!RemoteControlMCP class methodsFor: 'class' stamp: 'H9 13/Aug/2026 06:42:24'!
+!RemoteControlMCP class methodsFor: 'class' stamp: 'sf 13/Aug/2026 06:42:24'!
 default
 	"Answer the lazily created default instance."
 	DefaultInstance ifNil: [ DefaultInstance := self new ].
 	^ DefaultInstance! !
 
-!RemoteControlMCP class methodsFor: 'class' stamp: 'H9 13/Aug/2026 06:42:25'!
+!RemoteControlMCP class methodsFor: 'class' stamp: 'sf 13/Aug/2026 06:42:25'!
 defaultPort
 	^ 2357! !
 
-!RemoteControlMCP class methodsFor: 'class' stamp: 'H9 13/Aug/2026 06:42:24'!
+!RemoteControlMCP class methodsFor: 'class' stamp: 'sf 13/Aug/2026 06:42:24'!
 start
 	"Start the default instance's MCP server and answer it."
 	^ self default start! !
 
-!RemoteControlMCP class methodsFor: 'class' stamp: 'H9 13/Aug/2026 06:42:24'!
+!RemoteControlMCP class methodsFor: 'class' stamp: 'sf 13/Aug/2026 06:42:24'!
 stop
 	^ self default stop! !
 
-!McpWebServer methodsFor: 'private' stamp: 'H9 13/Aug/2026 08:36:19'!
+!RemoteControlMCP class methodsFor: 'class initialization' stamp: 'AB 15/Sep/2026 13:30:00'!
+registerForStartUp
+	"Register this class in Smalltalk's startUp list, so the MCP server comes
+	back up automatically after an image save/reboot. Answer self."
+	Smalltalk addToStartUpList: self.
+	^ self! !
+
+!RemoteControlMCP class methodsFor: 'class initialization' stamp: 'AB 15/Sep/2026 13:30:00'!
+startUp: isARealStartup
+	"After a real image save/reboot, bring the MCP server back up in its own
+	process, so the (busy) startup phase never blocks the server."
+	isARealStartup ifFalse: [ ^ self ].
+	(self default server isNil)
+		ifTrue: [ [ self start ] forkAt: Processor userSchedulingPriority ]! !
+
+!McpWebServer methodsFor: 'private' stamp: 'sf 13/Aug/2026 08:36:19'!
 dispatchRequest: request url: dispatchUrl
 	"Answer super's behavior, except that when CORS is configured the preflight
 	OPTIONS and method-not-allowed responses are generated here with CORS headers.
@@ -1098,7 +1465,7 @@ dispatchRequest: request url: dispatchUrl
 		ifTrue: [ ^ self methodNotAllowedResponseTo: request action: action ].
 	^ super dispatchRequest: request url: dispatchUrl! !
 
-!McpWebServer methodsFor: 'private' stamp: 'H9 13/Aug/2026 08:36:21'!
+!McpWebServer methodsFor: 'private' stamp: 'sf 13/Aug/2026 08:36:21'!
 entryActionFor: dispatchUrl
 	"Answer the registered service entry {methods. action} for dispatchUrl, or nil.
 	Mirrors WebServer's own entry point lookup."
@@ -1112,7 +1479,7 @@ entryActionFor: dispatchUrl
 		action ifNil: [ action := entryPoints at: '/' ifAbsent: [ nil ] ] ].
 	^ action! !
 
-!McpWebServer methodsFor: 'private' stamp: 'H9 13/Aug/2026 08:36:23'!
+!McpWebServer methodsFor: 'private' stamp: 'sf 13/Aug/2026 08:36:23'!
 methodNotAllowedResponseTo: request action: action
 	"Answer a CORS-enabled 405 response for a method not served by the endpoint."
 	| allowedMethods resp |
@@ -1124,7 +1491,7 @@ methodNotAllowedResponseTo: request action: action
 	mcpOwner applyCorsHeadersTo: resp.
 	^ request sendResponse: resp content: 'Method Not Allowed'! !
 
-!McpWebServer methodsFor: 'private' stamp: 'H9 13/Aug/2026 08:36:22'!
+!McpWebServer methodsFor: 'private' stamp: 'sf 13/Aug/2026 08:36:22'!
 optionsResponseFor: request action: action
 	"Answer a CORS-enabled 200 OPTIONS (preflight) response. The 'allow' header
 	lists the methods the server supports."
@@ -1136,7 +1503,7 @@ optionsResponseFor: request action: action
 	mcpOwner applyCorsHeadersTo: resp.
 	^ request sendResponse: resp content: ''! !
 
-!McpWebServer methodsFor: 'private' stamp: 'H9 13/Aug/2026 08:34:30'!
+!McpWebServer methodsFor: 'private' stamp: 'sf 13/Aug/2026 08:34:30'!
 optionsResponseFor: request at: dispatchUrl
 	"Answer the CORS-enabled OPTIONS response. Mirrors WebServer's own lookup
 	of the entry point so the 'allow' header matches the registered service."
@@ -1156,62 +1523,62 @@ optionsResponseFor: request at: dispatchUrl
 	mcpOwner applyCorsHeadersTo: resp.
 	^ request sendResponse: resp content: ''! !
 
-!McpWebServer methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 08:34:31'!
+!McpWebServer methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 08:34:31'!
 mcpOwner
 	"Answer the RemoteControlMCP instance that owns this server."
 	^ mcpOwner! !
 
-!McpWebServer methodsFor: 'accessing' stamp: 'H9 13/Aug/2026 08:34:31'!
+!McpWebServer methodsFor: 'accessing' stamp: 'sf 13/Aug/2026 08:34:31'!
 mcpOwner: aRemoteControlMCP
 	"Set the RemoteControlMCP instance that owns this server."
 	mcpOwner := aRemoteControlMCP! !
 
-!McpSseSession methodsFor: 'accessing' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'accessing' stamp: 'sf 14/Aug/2026 09:00:00'!
 id
 	"Answer the session id."
 	^ id! !
 
-!McpSseSession methodsFor: 'accessing' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'accessing' stamp: 'sf 14/Aug/2026 09:00:00'!
 id: aString
 	id := aString! !
 
-!McpSseSession methodsFor: 'accessing' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'accessing' stamp: 'sf 14/Aug/2026 09:00:00'!
 isOpen
 	"Answer whether the event stream can still be written to."
 	^ open! !
 
-!McpSseSession methodsFor: 'accessing' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'accessing' stamp: 'sf 14/Aug/2026 09:00:00'!
 stream
 	"Answer the underlying socket stream."
 	^ stream! !
 
-!McpSseSession methodsFor: 'accessing' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'accessing' stamp: 'sf 14/Aug/2026 09:00:00'!
 stream: aStream
 	stream := aStream! !
 
-!McpSseSession methodsFor: 'initialization' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'initialization' stamp: 'sf 14/Aug/2026 09:00:00'!
 initialize
 	super initialize.
 	open := true.
 	writeMutex := Semaphore forMutualExclusion! !
 
-!McpSseSession methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 close
 	"Close the event stream. Idempotent."
 	open := false! !
 
-!McpSseSession methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 sendEndpointEvent: anEndpointUrl
 	"Announce the messages endpoint URL to the client."
 	self sendEvent: 'endpoint' data: anEndpointUrl! !
 
-!McpSseSession methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 sendEvent: anEventName data: aDataString
 	"Write one named SSE event frame."
 	self sendFrame: 'event: ', anEventName, String crlfString,
 		'data: ', aDataString, String crlfString, String crlfString! !
 
-!McpSseSession methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 sendFrame: aFrame
 	"Write one SSE frame to the stream as UTF-8 bytes, guarded by the write
 	mutex. A failed write closes the session."
@@ -1221,17 +1588,17 @@ sendFrame: aFrame
 			  self stream flush ]
 				on: Error do: [ :ex | self close ] ] ]! !
 
-!McpSseSession methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 sendKeepAlive
 	"Send a comment frame so proxies and clients see a live connection."
 	self sendFrame: ': keep-alive', String crlfString, String crlfString! !
 
-!McpSseSession methodsFor: 'sse' stamp: 'H9 14/Aug/2026 09:00:00'!
+!McpSseSession methodsFor: 'sse' stamp: 'sf 14/Aug/2026 09:00:00'!
 sendMessageEvent: aJsonString
 	"Send one JSON-RPC response as an SSE message event."
 	self sendEvent: 'message' data: aJsonString! !
 
-!WebUtils class methodsFor: 'json' stamp: 'H9 14/Aug/2026 18:30:00'!
+!WebUtils class methodsFor: 'json' stamp: 'sf 14/Aug/2026 18:30:00'!
 jsonMapFrom: stream
 	"Decodes a JSON {key:value, *} object from the stream.
 	FIX: an empty object {} must also consume its closing } so the parent map
@@ -1256,3 +1623,58 @@ jsonMapFrom: stream
 	].
 
 	^map! !
+
+!ClassDescription methodsFor: '*RemoteControlMCP' stamp: 'ML 13/May/2026 07:31:26'!
+safelyCompile: source classified: aCategory
+	"Compile one method, with the three things bridge callers always want:
+	  - Noisy Notifications (InMidstOfFileinNotification, UndeclaredVariableWarning, ...)
+	    are resumed so they don't poison the compile.
+	  - The method is stamped via Utilities changeStamp.
+	  - Smalltalk forceChangesToDisk runs so #authorAndStamp is readable immediately.
+	Returns the compiled selector. Errors propagate.
+
+	   Dock safelyCompile: 'foo ^ 42' classified: 'misc'
+	   Dock class safelyCompile: 'hi ^ ''hello''' classified: 'misc'
+	"
+	| selector |
+	[
+		selector := self
+			compile: source
+			classified: aCategory
+			withStamp: Utilities changeStamp
+			notifying: nil
+	] on: Notification do: [:ex | ex resume: true].
+	Smalltalk forceChangesToDisk.
+	^ selector! !
+
+!PopUpMenu methodsFor: '*RemoteControlMCP' stamp: 'sf 06/Sep/2026'!
+ startUpWithCaption: captionOrNil at: location allowKeyboard: aBoolean
+	"Headless guard: while an MCP eval runs, modal menus can never be answered
+	(no user, no UI event loop). Auto-answer so evals that trigger dialog code do
+	not spin forever in the `[(choice := menu startUpWithCaption:) isNil] whileTrue`
+	loop. Never auto-confirm: single-item menus (inform: ' OK ') answer 1, but any
+	two-item menu (confirm:, {trueChoice. falseChoice}) answers 0, i.e. the cancel
+	choice, so that a destructive action guarded by a confirm: (e.g. an install
+	that would discard unsaved package changes) is never silently confirmed."
+	(Smalltalk at: #McpEvaluating ifAbsent: [ false ])
+		ifTrue: [ ^ self labelString lineCount <= 1 ifTrue: [ 1 ] ifFalse: [ 0 ] ].
+	^ self mcpPopUpNormalStartUpWithCaption: captionOrNil at: location allowKeyboard: aBoolean! !
+
+!PopUpMenu methodsFor: '*RemoteControlMCP' stamp: 'sf 06/Sep/2026'!
+mcpPopUpNormalStartUpWithCaption: captionOrNil at: location allowKeyboard: aBoolean
+	"Original behavior of #startUpWithCaption:at:allowKeyboard:. Display the menu,
+	with caption if supplied. Wait for the mouse button to go down, then track the
+	selection as long as the button is pressed. Answer the index of the current
+	selection, or zero if the mouse is not released over any menu item."
+	| maxHeight |
+	maxHeight := Display height * 3 // 4.
+	self frameHeight > maxHeight
+		ifTrue: [
+			^self
+				startUpSegmented: maxHeight
+				withCaption: captionOrNil
+				at: location
+				allowKeyboard: aBoolean].
+	^(MVCMenuMorph from: self title: captionOrNil)
+		invokeAt: location
+		allowKeyboard: aBoolean! !
