@@ -1,5 +1,7 @@
 # Cuis-Smalltalk-RemoteControlMCP
 
+**If you use Cuis 7.8, use the files in branch 7.8! All fixes for 7.8 are included there.**
+
 A **Model Context Protocol (MCP) server** (specification `2025-06-18`) for a running
 [Cuis-Smalltalk](https://github.com/Cuis-Smalltalk/Cuis-Smalltalk-Dev) image. It is the successor to
 the existing `RemoteControl` HTTP bridge (port 2347) and exposes the image to LLMs and agents over
