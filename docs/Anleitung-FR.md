@@ -1,4 +1,4 @@
-# RemoteControlMCP – Guide (Français)
+# RemoteControlMCP – Guide
 
 Ce guide décrit comment charger, démarrer et utiliser **RemoteControlMCP**. La version allemande se
 trouve dans [Anleitung.md](Anleitung.md), la version anglaise dans [Anleitung-EN.md](Anleitung-EN.md),
