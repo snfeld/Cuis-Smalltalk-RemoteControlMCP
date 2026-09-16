@@ -1,6 +1,7 @@
 # Cuis-Smalltalk-RemoteControlMCP
 
 **If you use Cuis 7.8, use the files in branch Cuis7.8! All fixes for 7.8 are included there.**
+RemoteControlMCP was developed and tested in an Alipne-musl (with gcompat) docker container, with stock Cuis7.8, headless. No desktop, no X11, no framebuffer, but still screenshots.
 
 A **Model Context Protocol (MCP) server** (specification `2025-06-18`) for a running
 [Cuis-Smalltalk](https://github.com/Cuis-Smalltalk/Cuis-Smalltalk-Dev) image. It is the successor to
