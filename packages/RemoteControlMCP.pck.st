@@ -1598,32 +1598,6 @@ sendMessageEvent: aJsonString
 	"Send one JSON-RPC response as an SSE message event."
 	self sendEvent: 'message' data: aJsonString! !
 
-!WebUtils class methodsFor: 'json' stamp: 'sf 14/Aug/2026 18:30:00'!
-jsonMapFrom: stream
-	"Decodes a JSON {key:value, *} object from the stream.
-	FIX: an empty object {} must also consume its closing } so the parent map
-	does not swallow following keys. See docs/WebUtils-jsonMapFrom-Bug.md"
-
-	| map ch key value |
-	map := Dictionary new.
-	(ch := stream next) = ${ ifFalse:[^self error: 'JSON Object expected'].
-	stream skipSeparators.
-	stream peek = $} ifTrue:[stream next. ^map].
-
-	["Decode the next key:value pair"
-	stream skipSeparators.
-	key := self jsonStringFrom: stream.
-	stream skipSeparators.
-	stream next = $: ifFalse:[^self error: 'Key-value pair expected'].
-	value := self jsonDecode: stream.
-	map at: key put: value.
-	stream skipSeparators.
-	(ch := stream next) = $}] whileFalse:[
-		ch = $, ifFalse:[^self error: 'Comma expected'].
-	].
-
-	^map! !
-
 !ClassDescription methodsFor: '*RemoteControlMCP' stamp: 'ML 13/May/2026 07:31:26'!
 safelyCompile: source classified: aCategory
 	"Compile one method, with the three things bridge callers always want:
