@@ -1,4 +1,4 @@
-# RemoteControlMCP – 使用指南（中文）
+# RemoteControlMCP – 使用指南
 
 本指南介绍如何加载、启动和使用 **RemoteControlMCP**。德文版见 [Anleitung.md](Anleitung.md)，
 英文版见 [Anleitung-EN.md](Anleitung-EN.md)，西班牙文版见 [Anleitung-ES.md](Anleitung-ES.md)，
