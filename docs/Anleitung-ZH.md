@@ -1,28 +1,36 @@
-# RemoteControlMCP – 使用指南（中文）
+# RemoteControlMCP – 使用指南
 
 本指南介绍如何加载、启动和使用 **RemoteControlMCP**。德文版见 [Anleitung.md](Anleitung.md)，
-英文版见 [Anleitung-EN.md](Anleitung-EN.md)。
+英文版见 [Anleitung-EN.md](Anleitung-EN.md)，西班牙文版见 [Anleitung-ES.md](Anleitung-ES.md)，
+法文版见 [Anleitung-FR.md](Anleitung-FR.md)，日文版见 [Anleitung-JA.md](Anleitung-JA.md)。
 
 ## 1. 概述
 
 `RemoteControlMCP` 是一个模型上下文协议（MCP）服务器（规范 `2025-06-18`），通过
 **流式 HTTP**（Streamable HTTP，JSON-RPC 2.0）将运行中的 Cuis-Smalltalk 镜像开放给大语言模型
-和智能体使用。它提供工具（执行代码、编译方法、截屏、内省）、一个资源（`image://status`）和
-一个提示词（`develop-in-cuis`）。
+和智能体使用。它提供十一个工具（执行代码、编译方法、截屏、内省、方法源码与选择符用法）、一个
+资源（`image://status`）和一个提示词（`develop-in-cuis`）。
+
+**该包完全自包含**——它基于 `WebClient`（WebServer、WebUtils JSON）和
+`Graphics-Files-Additional`（用于截屏的 PNGReadWriter），**无需**单独的 JSON 包，也不需要
+`RemoteControl` 桥。
 
 ## 2. 安装
 
-前置条件：Cuis 7.8 及包 **WebClient 1.38** 和 **JSON 1.29**（文件 `RemoteControlMCP.pck.st`
-通过 `!requires:` 声明了这一依赖）。
+前置条件：Cuis 7.8 及包 **WebClient** 和 **Graphics-Files-Additional**（文件
+`RemoteControlMCP.pck.st` 通过 `!requires:` 声明了这些依赖；交互式 file-in 会自动按正确顺序加载）。
 
 在镜像中读取包：
 
 ```smalltalk
-ChangeSet fileIn: '/workspace/remotemcp/packages/RemoteControlMCP.pck.st' asFileEntry.
-ChangeSet fileIn: '/workspace/remotemcp/packages/Tests-RemoteControlMCP.pck.st' asFileEntry.  "可选：测试"
+ChangeSet fileIn: '/workspace/RemoteControlMCP-clean/packages/RemoteControlMCP.pck.st' asFileEntry.
+ChangeSet fileIn: '/workspace/RemoteControlMCP-clean/packages/Tests-RemoteControlMCP.pck.st' asFileEntry.  "可选：测试"
 ```
 
-或者通过图形界面：**Open… → Package Manager → Install**，选择两个 `.pck.st` 文件。
+该包还包含 WebUtils JSON 解析器的修复（`jsonMapFrom:` 在空对象 `{}` 之后吞掉了后续键）。修复已内置
+在主包中；此外也可作为独立文件使用，位于 `packages/WebUtils-jsonMapFrom-Fix.pck.st`。
+
+或者通过图形界面：**Open… → Package Manager → Install**，选择 `.pck.st` 文件。
 
 ## 3. 启动与停止
 
@@ -208,11 +216,24 @@ curl -s -X POST http://127.0.0.1:2357/mcp \
 
 如果任务超过其超时时间，看门狗会终止它，`eval_status` 报告 `"status":"timeout"`。
 
-### 6.6 tools/call – compile_method
+### 6.6 tools/call – eval_cancel（取消任务）
+
+正在运行的任务（异步任务，或同步超时后仍在运行的任务）可以用 `eval_cancel` 终止：
 
 ```bash
 curl -s -X POST http://127.0.0.1:2357/mcp \
   -d '{"jsonrpc":"2.0","id":7,"method":"tools/call",
+       "params":{"name":"eval_cancel","arguments":{"jobId":"job-2"}}}'
+```
+
+响应：任务的最终状态（JSON 文本）。运行中的任务被终止并回复 `{"jobId":"job-2","status":"cancelled"}`；
+已结束的任务保持其最终状态。之后该任务被从注册表中移除。
+
+### 6.7 tools/call – compile_method
+
+```bash
+curl -s -X POST http://127.0.0.1:2357/mcp \
+  -d '{"jsonrpc":"2.0","id":8,"method":"tools/call",
        "params":{"name":"compile_method",
                  "arguments":{"className":"DocExample","source":"greeting\n\t^ 40 + 2","category":"accessing"}}}'
 ```
@@ -225,54 +246,79 @@ curl -s -X POST http://127.0.0.1:2357/mcp \
 
 ```bash
 cat > /tmp/compile.json <<'EOF'
-{"jsonrpc":"2.0","id":7,"method":"tools/call",
+{"jsonrpc":"2.0","id":8,"method":"tools/call",
  "params":{"name":"compile_method",
            "arguments":{"className":"DocExample","source":"greeting\n\t^ '你好！'","category":"accessing"}}}
 EOF
 curl -s -X POST http://127.0.0.1:2357/mcp --data @/tmp/compile.json
 ```
 
-### 6.7 tools/call – screenshot
+### 6.8 tools/call – screenshot
 
 ```bash
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":8,"method":"tools/call",
+  -d '{"jsonrpc":"2.0","id":9,"method":"tools/call",
        "params":{"name":"screenshot","arguments":{}}}'
 ```
 
 响应：`content[0].data` 包含 Base64 编码的 PNG 数据（`"type":"image"`、`"mimeType":"image/png"`）。
 可选裁剪到某个 morph 类：`{"morph":"SystemWindow","pad":8}`。
 
-### 6.8 tools/call – 内省
+### 6.9 tools/call – method_source
+
+```bash
+curl -s -X POST http://127.0.0.1:2357/mcp \
+  -d '{"jsonrpc":"2.0","id":10,"method":"tools/call",
+       "params":{"name":"method_source","arguments":{"className":"RemoteControlMCP","selector":"serverVersion"}}}'
+```
+
+响应：`Class >> selector`、类别和源码。使用 `"includeSuperclasses":true` 时，如果该类未定义该选择符，
+则注明继承链中最近的定义类。
+
+### 6.10 tools/call – selector_usage
+
+```bash
+curl -s -X POST http://127.0.0.1:2357/mcp \
+  -d '{"jsonrpc":"2.0","id":11,"method":"tools/call",
+       "params":{"name":"selector_usage","arguments":{"selector":"serverVersion"}}}'
+```
+
+响应：谁实现、谁发送该选择符，每个条目一行 `Class >> selector`。
+
+### 6.11 tools/call – 内省
 
 ```bash
 # 所有类（每行一个）
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"list_classes","arguments":{}}}'
+  -d '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"list_classes","arguments":{}}}'
+
+# 某个类的类层次（祖先 + 缩进的子类树）
+curl -s -X POST http://127.0.0.1:2357/mcp \
+  -d '{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"class_hierarchy","arguments":{"className":"RemoteControlMCP"}}}'
 
 # 某个类的摘要
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"class_summary","arguments":{"name":"RemoteControlMCP"}}}'
+  -d '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"class_summary","arguments":{"name":"RemoteControlMCP"}}}'
 
 # 镜像状态
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"image_status","arguments":{}}}'
+  -d '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"image_status","arguments":{}}}'
 ```
 
-### 6.9 提示词
+### 6.12 提示词
 
 ```bash
-curl -s -X POST http://127.0.0.1:2357/mcp -d '{"jsonrpc":"2.0","id":12,"method":"prompts/list","params":{}}'
+curl -s -X POST http://127.0.0.1:2357/mcp -d '{"jsonrpc":"2.0","id":16,"method":"prompts/list","params":{}}'
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":13,"method":"prompts/get","params":{"name":"develop-in-cuis"}}'
+  -d '{"jsonrpc":"2.0","id":17,"method":"prompts/get","params":{"name":"develop-in-cuis"}}'
 ```
 
-### 6.10 资源
+### 6.13 资源
 
 ```bash
-curl -s -X POST http://127.0.0.1:2357/mcp -d '{"jsonrpc":"2.0","id":14,"method":"resources/list","params":{}}'
+curl -s -X POST http://127.0.0.1:2357/mcp -d '{"jsonrpc":"2.0","id":18,"method":"resources/list","params":{}}'
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":15,"method":"resources/read","params":{"uri":"image://status"}}'
+  -d '{"jsonrpc":"2.0","id":19,"method":"resources/read","params":{"uri":"image://status"}}'
 ```
 
 ## 7. 错误码与状态码
@@ -391,19 +437,25 @@ MCP 客户端**在浏览器中**运行——因此请求从浏览器加载 `llam
 |------|--------------|----------|------|
 | `eval` | `source` | `timeout`, `async` | 结果（sync）或 `jobId`（async） |
 | `eval_status` | `jobId` | – | 异步任务的状态/结果 |
+| `eval_cancel` | `jobId` | – | 取消任务；任务的最终状态 |
 | `compile_method` | `className`, `source` | `isClassSide`, `category` | 编译后的选择器名 |
 | `screenshot` | – | `morph`, `pad` | Base64 PNG（`type: image`） |
 | `list_classes` | – | – | 类列表（每行一个） |
 | `class_summary` | `name` | – | 类的 JSON 摘要 |
+| `class_hierarchy` | `className` | – | 祖先 + 子类树 |
+| `method_source` | `className`, `selector` | `includeSuperclasses` | 方法源码 |
+| `selector_usage` | `selector` | – | 实现者/发送者，`Class >> selector` |
 | `image_status` | – | – | 镜像的 JSON 状态 |
 
 ## 10. 提示
 
 - eval 作为独立进程运行，优先级低于 HTTP 处理器；看门狗会在 `evalTimeout` 之后终止超时任务。
   因此即使长计算期间，HTTP 服务器也保持可响应。
+- 长计算请使用 `async: true`，并通过 `eval_status` 获取结果；运行中的任务可用 `eval_cancel` 取消。
 - `compile_method` 和 `eval` 会修改正在运行的镜像。可用 `Image save` 保存更改，或事先创建快照。
 - 服务器默认只绑定 `127.0.0.1`——如需从其他计算机访问，请相应修改 `interfaceAddress:`（此时务必
   设置令牌）。
 - CORS 默认禁用。浏览器客户端请设置 `corsAllowedOrigin:`——使用 `'*'` 时务必使用 bearer 令牌
   （见 5.1）。
-- stdio 传输已在计划中，但尚未实现（见 `PROJEKT.md`，OP3）。
+- 该包完全自包含，无需 `RemoteControl` 桥或单独的 JSON 包；只需要 `WebClient` 和
+  `Graphics-Files-Additional`（均来自 Cuis 7.8 发行版）。
