@@ -1,4 +1,4 @@
-# RemoteControlMCP – Manual (Español)
+# RemoteControlMCP – Manual 
 
 Este manual describe cómo cargar, iniciar y usar **RemoteControlMCP**. La versión en alemán está en
 [Anleitung.md](Anleitung.md), en inglés en [Anleitung-EN.md](Anleitung-EN.md), en francés en
