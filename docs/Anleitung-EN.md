@@ -1,4 +1,4 @@
-# RemoteControlMCP – Usage Guide (English)
+# RemoteControlMCP – Usage Guide
 
 This guide describes how to load, start and use **RemoteControlMCP**.
 Other languages: [Deutsch](Anleitung.md), [Español](Anleitung-ES.md), [Français](Anleitung-FR.md),
