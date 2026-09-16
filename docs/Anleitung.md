@@ -2,28 +2,37 @@
 
 Diese Anleitung beschreibt, wie **RemoteControlMCP** geladen, gestartet und verwendet wird.
 Weitere Sprachen: [English](Anleitung-EN.md), [Español](Anleitung-ES.md), [Français](Anleitung-FR.md),
-[中文](Anleitung-ZH.md).
+[中文](Anleitung-ZH.md), [日本語](Anleitung-JA.md).
 
 ## 1. Überblick
 
 `RemoteControlMCP` ist ein Model-Context-Protocol-Server (Spezifikation `2025-06-18`), der einen
 laufenden Cuis-Smalltalk-Image über **Streamable HTTP** (JSON-RPC 2.0) für LLMs und Agenten zugänglich macht.
-Er stellt Tools (Code ausführen, Methoden kompilieren, Screenshots, Introspection), eine Ressource
-(`image://status`) und einen Prompt (`develop-in-cuis`) bereit.
+Er stellt elf Tools bereit (Code ausführen, Methoden kompilieren, Screenshots, Introspection,
+Methodensource und Selektoren), eine Ressource (`image://status`) und einen Prompt (`develop-in-cuis`).
+
+**Das Paket ist eigenständig** – es baut auf `WebClient` (WebServer, WebUtils-JSON) und
+`Graphics-Files-Additional` (PNGReadWriter für Screenshots) auf und benötigt **kein** separates
+JSON-Paket und keine `RemoteControl`-Brücke.
 
 ## 2. Installation
 
-Voraussetzungen: Cuis 7.8 mit den Packages **WebClient 1.38** und **JSON 1.29**
-(die Datei `RemoteControlMCP.pck.st` deklariert diese Abhängigkeit mit `!requires:`).
+Voraussetzungen: Cuis 7.8 mit den Packages **WebClient** und **Graphics-Files-Additional**.
+Das Paket `RemoteControlMCP.pck.st` deklariert diese Abhängigkeiten (`!requires:`); bei einem
+interaktiven file-in werden sie automatisch in der richtigen Reihenfolge geladen.
 
-Package einlesen (im Image):
+Paket einlesen (im Image):
 
 ```smalltalk
-ChangeSet fileIn: '/workspace/remotemcp/packages/RemoteControlMCP.pck.st' asFileEntry.
-ChangeSet fileIn: '/workspace/remotemcp/packages/Tests-RemoteControlMCP.pck.st' asFileEntry.  "optional: Tests"
+ChangeSet fileIn: '/workspace/RemoteControlMCP-clean/packages/RemoteControlMCP.pck.st' asFileEntry.
+ChangeSet fileIn: '/workspace/RemoteControlMCP-clean/packages/Tests-RemoteControlMCP.pck.st' asFileEntry.  "optional: Tests"
 ```
 
-Alternativ über die GUI: **Open… → Package Manager → Install**, beide `.pck.st`-Dateien wählen.
+Enthalten ist auch der Fix für den WebUtils-JSON-Parser (`jsonMapFrom:` verschluckt bei leerem `{}`
+Folge-Keys). Der Fix steckt direkt im Hauptpaket; als eigenständige Datei liegt er zusätzlich unter
+`packages/WebUtils-jsonMapFrom-Fix.pck.st`.
+
+Alternativ über die GUI: **Open… → Package Manager → Install**, die `.pck.st`-Dateien wählen.
 
 ## 3. Starten und Stoppen
 
@@ -217,11 +226,25 @@ Solange der Job läuft: `{"jobId":"job-2","status":"running"}` – danach:
 Läuft ein Job über sein Timeout hinaus, beendet ihn der Watchdog und `eval_status` meldet
 `"status":"timeout"`.
 
-### 6.6 tools/call – compile_method
+### 6.6 tools/call – eval_cancel (Job abbrechen)
+
+Ein laufender Job (asynchron oder nach Sync-Timeout) lässt sich mit `eval_cancel` abbrechen:
 
 ```bash
 curl -s -X POST http://127.0.0.1:2357/mcp \
   -d '{"jsonrpc":"2.0","id":7,"method":"tools/call",
+       "params":{"name":"eval_cancel","arguments":{"jobId":"job-2"}}}'
+```
+
+Antwort: der finale Jobstatus als JSON-Text. Ein laufender Job wird mit
+`{"jobId":"job-2","status":"cancelled"}` beendet; ein bereits beendeter Job behält seinen
+Endstatus. Danach ist der Job aus der Registry entfernt.
+
+### 6.7 tools/call – compile_method
+
+```bash
+curl -s -X POST http://127.0.0.1:2357/mcp \
+  -d '{"jsonrpc":"2.0","id":8,"method":"tools/call",
        "params":{"name":"compile_method",
                  "arguments":{"className":"DocExample","source":"greeting\n\t^ 40 + 2","category":"accessing"}}}'
 ```
@@ -235,54 +258,80 @@ Shell-Quotierung). Sauberer ist ein Payload-File:
 
 ```bash
 cat > /tmp/compile.json <<'EOF'
-{"jsonrpc":"2.0","id":7,"method":"tools/call",
+{"jsonrpc":"2.0","id":8,"method":"tools/call",
  "params":{"name":"compile_method",
            "arguments":{"className":"DocExample","source":"greeting\n\t^ 'Hallo!'","category":"accessing"}}}
 EOF
 curl -s -X POST http://127.0.0.1:2357/mcp --data @/tmp/compile.json
 ```
 
-### 6.7 tools/call – screenshot
+### 6.8 tools/call – screenshot
 
 ```bash
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":8,"method":"tools/call",
+  -d '{"jsonrpc":"2.0","id":9,"method":"tools/call",
        "params":{"name":"screenshot","arguments":{}}}'
 ```
 
 Antwort: `content[0].data` enthält die Base64-kodierten PNG-Daten (`"type":"image"`,
 `"mimeType":"image/png"`). Optional crop auf eine Morph-Klasse: `{"morph":"SystemWindow","pad":8}`.
 
-### 6.8 tools/call – Introspection
+### 6.9 tools/call – method_source
+
+```bash
+curl -s -X POST http://127.0.0.1:2357/mcp \
+  -d '{"jsonrpc":"2.0","id":10,"method":"tools/call",
+       "params":{"name":"method_source","arguments":{"className":"RemoteControlMCP","selector":"serverVersion"}}}'
+```
+
+Antwort: `Class >> selector`, Kategorie und Quelltext. Mit `"includeSuperclasses":true` wird die
+nächste definierende Klasse in der Vererbungskette benannt, falls die Klasse die Methode selbst nicht
+definiert.
+
+### 6.10 tools/call – selector_usage
+
+```bash
+curl -s -X POST http://127.0.0.1:2357/mcp \
+  -d '{"jsonrpc":"2.0","id":11,"method":"tools/call",
+       "params":{"name":"selector_usage","arguments":{"selector":"serverVersion"}}}'
+```
+
+Antwort: wer implementiert und wer sendet den Selektor, eine `Class >> selector`-Zeile pro Eintrag.
+
+### 6.11 tools/call – Introspection
 
 ```bash
 # Alle Klassen (eine pro Zeile)
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"list_classes","arguments":{}}}'
+  -d '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"list_classes","arguments":{}}}'
+
+# Klassenhierarchie einer Klasse (Ancestry + eingerückter Descendant-Baum)
+curl -s -X POST http://127.0.0.1:2357/mcp \
+  -d '{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"class_hierarchy","arguments":{"className":"RemoteControlMCP"}}}'
 
 # Zusammenfassung einer Klasse
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"class_summary","arguments":{"name":"RemoteControlMCP"}}}'
+  -d '{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"class_summary","arguments":{"name":"RemoteControlMCP"}}}'
 
 # Image-Status
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"image_status","arguments":{}}}'
+  -d '{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"image_status","arguments":{}}}'
 ```
 
-### 6.9 Prompts
+### 6.12 Prompts
 
 ```bash
-curl -s -X POST http://127.0.0.1:2357/mcp -d '{"jsonrpc":"2.0","id":12,"method":"prompts/list","params":{}}'
+curl -s -X POST http://127.0.0.1:2357/mcp -d '{"jsonrpc":"2.0","id":16,"method":"prompts/list","params":{}}'
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":13,"method":"prompts/get","params":{"name":"develop-in-cuis"}}'
+  -d '{"jsonrpc":"2.0","id":17,"method":"prompts/get","params":{"name":"develop-in-cuis"}}'
 ```
 
-### 6.10 Ressourcen
+### 6.13 Ressourcen
 
 ```bash
-curl -s -X POST http://127.0.0.1:2357/mcp -d '{"jsonrpc":"2.0","id":14,"method":"resources/list","params":{}}'
+curl -s -X POST http://127.0.0.1:2357/mcp -d '{"jsonrpc":"2.0","id":18,"method":"resources/list","params":{}}'
 curl -s -X POST http://127.0.0.1:2357/mcp \
-  -d '{"jsonrpc":"2.0","id":15,"method":"resources/read","params":{"uri":"image://status"}}'
+  -d '{"jsonrpc":"2.0","id":19,"method":"resources/read","params":{"uri":"image://status"}}'
 ```
 
 ## 7. Fehlercodes und Statuscodes
@@ -407,20 +456,27 @@ Hinweise:
 |------|--------------------------|---------------------|---------|
 | `eval` | `source` | `timeout`, `async` | Ergebnis (sync) oder `jobId` (async) |
 | `eval_status` | `jobId` | – | Status/Ergebnis eines async-Jobs |
+| `eval_cancel` | `jobId` | – | Bricht Job ab; finaler Jobstatus |
 | `compile_method` | `className`, `source` | `isClassSide`, `category` | kompilierter Selektorname |
 | `screenshot` | – | `morph`, `pad` | Base64-PNG (`type: image`) |
 | `list_classes` | – | – | Klassenliste (eine pro Zeile) |
 | `class_summary` | `name` | – | JSON-Zusammenfassung der Klasse |
+| `class_hierarchy` | `className` | – | Ancestry + Descendant-Baum |
+| `method_source` | `className`, `selector` | `includeSuperclasses` | Quelltext der Methode |
+| `selector_usage` | `selector` | – | Implementierer/Sender, `Class >> selector` |
 | `image_status` | – | – | JSON-Status des Images |
 
 ## 10. Hinweise
 
 - Evals laufen als eigene Prozesse mit Priorität unterhalb des HTTP-Handlers; ein Watchdog beendet
   überfällige Jobs nach `evalTimeout`. Der HTTP-Server bleibt dadurch auch bei langen Evals ansprechbar.
+- Für lange Evals `async: true` verwenden und das Ergebnis über `eval_status` abholen; laufende Jobs
+  lassen sich mit `eval_cancel` abbrechen.
 - `compile_method` und `eval` verändern den laufenden Image. Mit `Image save` können Sie Änderungen
   sichern oder vorher einen Snapshot anlegen.
 - Der Server bindet standardmäßig nur an `127.0.0.1` – für Zugriff von anderen Rechnern
   `interfaceAddress:` entsprechend ändern (dann zwingend ein Token setzen).
 - CORS ist standardmäßig deaktiviert. Für Browser-Clients `corsAllowedOrigin:` setzen – bei `'*'`
   unbedingt einen Bearer-Token verwenden (siehe 5.1).
-- Der stdio-Transport ist geplant, aber noch nicht umgesetzt (siehe `PROJEKT.md`, OP3).
+- Das Paket steht eigenständig ohne `RemoteControl`-Brücke und ohne separates JSON-Paket; einzig
+  `WebClient` und `Graphics-Files-Additional` (beide aus der Cuis-7.8-Distribution) werden benötigt.
