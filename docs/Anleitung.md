@@ -1,4 +1,4 @@
-# RemoteControlMCP – Anleitung (Deutsch)
+# RemoteControlMCP – Anleitung
 
 Diese Anleitung beschreibt, wie **RemoteControlMCP** geladen, gestartet und verwendet wird.
 Weitere Sprachen: [English](Anleitung-EN.md), [Español](Anleitung-ES.md), [Français](Anleitung-FR.md),
