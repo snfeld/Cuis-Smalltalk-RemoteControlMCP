@@ -1,4 +1,4 @@
-# RemoteControlMCP – 使用ガイド（日本語）
+# RemoteControlMCP – 使用ガイド
 
 このガイドでは、**RemoteControlMCP** の読み込み、起動、使用方法を説明します。他言語版：
 [Deutsch（ドイツ語）](Anleitung.md)・[English（英語）](Anleitung-EN.md)・
