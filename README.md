@@ -58,5 +58,3 @@ RemoteControlMCP stop.         "stops it again"
 - [中文](docs/Anleitung-ZH.md) – 使用指南（带示例）
 - [日本語](docs/Anleitung-JA.md) – 使用ガイド（例つき）
 
-> `README.md` in this folder is the build/rebuild reference (dependencies, headless boot, package
-> load order). Use this `README-USER.md` for everyday usage.
